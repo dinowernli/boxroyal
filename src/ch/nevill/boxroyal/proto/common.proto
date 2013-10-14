@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+option java_outer_classname = "CommonProto";
+option java_package = "ch.nevill.boxroyal.proto";
+option java_multiple_files = true;
+
+enum Direction {
+	NORTH = 0;
+	EAST = 1;
+	SOUTH = 2;
+	WEST = 3;
+}
+
+message Point {
+	optional int32 x = 1;
+	optional int32 y = 2;
+}
+
+message Size {
+	optional int32 width = 1;
+	optional int32 height = 2;
+}
+
