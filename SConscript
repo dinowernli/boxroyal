@@ -26,4 +26,4 @@ for proto_file in Glob(os.path.join(proto_dir, '*.proto')):
     str(proto_file),
     'protoc --java_out=%s --proto_path=%s %s' % (build_dir, proto_dir, str(proto_file)))
 
-environment.Java(target='bin', source=[src_dir, build_dir])
+#environment.Java(target='bin', source=[src_dir, build_dir])
