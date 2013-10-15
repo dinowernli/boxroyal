@@ -1,0 +1,33 @@
+syntax = "proto2";
+
+import "game_state.proto";
+import "operation.proto";
+
+option java_outer_classname = "GameLogProto";
+option java_package = "ch.nevill.boxroyal.proto";
+option java_multiple_files = true;
+
+enum OperationError {
+	NONE = 0;
+	INVALID_FIELD = 1;
+	WRONG_ROUND = 2;
+	INVALID_ID = 3;
+	WRONG_PLAYER = 4;
+	INVALID_MOVEMENT = 5;
+}
+
+message ReceivedOperation {
+	optional int32 player_id = 1;
+	optional OperationError error = 3;
+	optional Operation operation = 2;
+}
+
+message Round {
+	optional int32 round_id = 1;
+	repeated ReceivedOperation operation = 2;
+}
+
+message GameLog {
+	optional GameState start_state = 1;
+	repeated Round round = 2;
+}

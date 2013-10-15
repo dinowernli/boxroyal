@@ -1,19 +1,36 @@
 package ch.nevill.boxroyal.server;
 
-import java.util.List;
+import java.util.Map;
 
 import ch.nevill.boxroyal.proto.Box;
-import ch.nevill.boxroyal.proto.Bullet;
 import ch.nevill.boxroyal.proto.Direction;
+import ch.nevill.boxroyal.proto.GameLog;
 import ch.nevill.boxroyal.proto.GameState;
 import ch.nevill.boxroyal.proto.Operation;
+import ch.nevill.boxroyal.proto.OperationError;
 import ch.nevill.boxroyal.proto.Point;
 import ch.nevill.boxroyal.proto.Point.Builder;
+import ch.nevill.boxroyal.proto.Round;
+import ch.nevill.boxroyal.proto.Soldier;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
 
 public class GameSimulator {
+  
+  private static final int MAX_ROUNDS = 200;
+
+  private class OperationException extends Exception {
+    private static final long serialVersionUID = -2405849614106891603L;
+    private OperationError code;
+
+    public OperationException(OperationError code) {
+      this.code = code;
+    }
+    
+    public OperationError getCode() {
+      return code;
+    }
+  }
   
   private static Point applyDirection(Point point, Direction direction) {
     Builder builder = point.toBuilder();
@@ -35,71 +52,125 @@ public class GameSimulator {
     }
     return builder.build();
   }
+  
+  private Optional<Soldier.Builder> getSoldierById(int soldierId) {
+    return Optional.<Soldier.Builder>absent();
+  }
+  
+  private GameState.Builder simulationState;
+  private GameLog.Builder gameLog;
+  private int roundId = 0;
+  
+  class SimulationStep {
 
-  class SimulationState {
+    private final GameState entryState;
 
-    private GameState state;
-    private ImmutableMap<Integer, Integer> soldierIndexMap;
-    private ImmutableMap<Integer, Bullet> bulletMap;
-
-    public SimulationState(GameState state) {
-      this.state = state;
+    public SimulationStep() {
+      this.entryState = simulationState.build();
     }
 
     private Box getBoxAt(Point p) {
-      return state.getBoxList().get(p.getX() * state.getSize().getWidth() * p.getY());
+      return entryState.getBoxList().get(p.getX() * entryState.getSize().getWidth() * p.getY());
     }
 
-    private Optional<GameState> applyOperation(final GameState state, Operation operation) {
+    private void applyOperation(int playerId, Operation operation) throws OperationException {
       if (operation.hasMove() == operation.hasShoot()) {
-        return Optional.<GameState>absent();
+        throw new OperationException(OperationError.INVALID_FIELD);
       }
 
-      GameState.Builder newState = state.toBuilder();
       if (operation.hasShoot()) {
-        int soldierIndex = soldierIndexMap.get(operation.getShoot().getSoldierId());
-        newState.addBulletBuilder()
-            .setPosition(state.getSoldier(soldierIndex).getPosition())
+        if (!operation.getShoot().hasSoldierId()) {
+          throw new OperationException(OperationError.INVALID_FIELD);
+        }
+        
+        Optional<Soldier.Builder> soldier = getSoldierById(operation.getShoot().getSoldierId());
+        if (!soldier.isPresent()) {
+          throw new OperationException(OperationError.INVALID_ID);
+        }
+        if (soldier.get().getPlayerId() != playerId) {
+          throw new OperationException(OperationError.WRONG_PLAYER);
+        }
+        
+        simulationState.addBulletBuilder()
+            .setPosition(soldier.get().getPosition())
             .setDirection(operation.getShoot().getDirection());
       }
 
       if (operation.hasMove()) {
-        int soldierIndex = soldierIndexMap.get(operation.getMove().getSoldierId());
+        if (!operation.getMove().hasSoldierId()) {
+          throw new OperationException(OperationError.INVALID_FIELD);
+        }
+        
+        Optional<Soldier.Builder> soldier = getSoldierById(operation.getMove().getSoldierId());
+        if (!soldier.isPresent()) {
+          throw new OperationException(OperationError.INVALID_ID);
+        }
+        if (soldier.get().getPlayerId() != playerId) {
+          throw new OperationException(OperationError.WRONG_PLAYER);
+        }
         
         Point dest = applyDirection(
-            state.getSoldier(soldierIndex).getPosition(),
+            soldier.get().getPosition(),
             operation.getMove().getDirection());
         Box destBox = getBoxAt(dest);
-        if (destBox.hasBlocking()) {
-          return Optional.<GameState>absent();
+        if (destBox.getBlocking()) {
+          throw new OperationException(OperationError.INVALID_MOVEMENT);
         }
         
-        newState.getSoldierBuilder(soldierIndex).setPosition(dest);
+        soldier.get().setPosition(dest);
       }
-
-      return Optional.of(newState.build());
+    }
+    
+    private void preStep() {
+      // Do nothing
     }
 
-    private GameState operationsStep(final List<Operation> operations) {
-
-      GameState newState = state;
-      for (Operation operation : operations) {
-        Optional<GameState> result = applyOperation(newState, operation);
-        if (result.isPresent()) {
-          newState = result.get();
+    private void operationsStep(Map<Integer, Operation> playerOperations) {
+      
+      SimulationStep step = new SimulationStep();
+      Round.Builder round = gameLog.addRoundBuilder();
+      round.setRoundId(roundId);
+      
+      for (Map.Entry<Integer, Operation> e : playerOperations.entrySet()) {
+        OperationError error = OperationError.NONE;
+        try {
+          step.applyOperation(e.getKey(), e.getValue());
+        } catch (OperationException exc) {
+          error = exc.getCode();
         }
+        round.addOperationBuilder()
+            .setOperation(e.getValue())
+            .setError(error)
+            .setPlayerId(e.getKey());
       }
-
-      return newState;
+    }
+    
+    private void postStep() {
+      // TODO: update in-flight bullets
+      
+      ++roundId;
     }
 
   }
 
-  private GameState simulateStep(final GameState state) {
-    SimulationState simulation = new SimulationState(state);
-    throw new UnsupportedOperationException();
+  private void simulateStep() {
+    SimulationStep step = new SimulationStep();
+    step.preStep();
+    step.operationsStep(null);
+    step.postStep();
   }
 
-
-
+  public void run() {
+    // setup/send initial state
+    
+    while (roundId < MAX_ROUNDS) {
+      // receive operations
+      
+      // step
+      simulateStep();
+      
+      // send result
+    }
+  }
+  
 }

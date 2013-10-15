@@ -17,6 +17,7 @@ message Move {
 }
 
 message Operation {
+	optional int32 round_id = 3;
 	optional Shoot shoot = 1;
 	optional Move move = 2;
 }
