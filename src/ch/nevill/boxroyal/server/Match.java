@@ -18,9 +18,9 @@ import ch.nevill.boxroyal.proto.Soldier;
 
 import com.google.common.base.Optional;
 
-public class GameSimulator implements Runnable {
+public class Match implements Runnable {
   
-  private static final Log log = LogFactory.getLog(GameSimulator.class);
+  private static final Log log = LogFactory.getLog(Match.class);
   
   private static final int MAX_ROUNDS = 200;
 
@@ -69,7 +69,7 @@ public class GameSimulator implements Runnable {
   private final Client player2;
   private final int matchId;
   
-  public GameSimulator(Client player1, Client player2, int matchId) {
+  public Match(Client player1, Client player2, int matchId) {
     this.player1 = player1;
     this.player2 = player2;
     this.matchId = matchId;
