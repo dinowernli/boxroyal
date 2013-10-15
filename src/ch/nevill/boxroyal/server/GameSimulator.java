@@ -15,7 +15,7 @@ import ch.nevill.boxroyal.proto.Soldier;
 
 import com.google.common.base.Optional;
 
-public class GameSimulator {
+public class GameSimulator implements Runnable {
   
   private static final int MAX_ROUNDS = 200;
 
@@ -60,7 +60,14 @@ public class GameSimulator {
   private GameState.Builder simulationState;
   private GameLog.Builder gameLog;
   private int roundId = 0;
+  private Client player1;
+  private Client player2;
   
+  public GameSimulator(Client player1, Client player2) {
+    this.player1 = player1;
+    this.player2 = player2;
+  }
+
   class SimulationStep {
 
     private final GameState entryState;
