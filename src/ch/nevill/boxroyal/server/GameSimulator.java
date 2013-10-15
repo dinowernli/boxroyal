@@ -157,7 +157,19 @@ public class GameSimulator implements Runnable {
   }
 
   public void run() {
-    // setup/send initial state
+    // TODO: setup initial state
+    
+    gameLog.setStartState(simulationState.build());
+    try {
+      player1.transmitState(gameLog.getStartState());
+    } catch (IOException e) {
+      log.error(String.format("Match %d: Error transmitting initial state to player 1", matchId), e);
+    }
+    try {
+      player2.transmitState(gameLog.getStartState());
+    } catch (IOException e) {
+      log.error(String.format("Match %d: Error transmitting initial state to player 2", matchId), e);
+    }
     
     while (roundId < MAX_ROUNDS) {
       SimulationStep step = new SimulationStep();
@@ -167,14 +179,14 @@ public class GameSimulator implements Runnable {
           step.runPlayerOperation(1, operation);
         }
       } catch (IOException e) {
-        log.warn(String.format("Match %d: Error receiving data from player 1", matchId), e);
+        log.warn(String.format("Match %d:%d: Error receiving data from player 1", matchId, roundId), e);
       }
       try {
         for (Operation operation : player2.receiveOperations()) {
           step.runPlayerOperation(2, operation);
         }
       } catch (IOException e) {
-        log.warn(String.format("Match %d: Error receiving data from player 2", matchId), e);
+        log.warn(String.format("Match %d:%d: Error receiving data from player 2", matchId, roundId), e);
       }
       
       step.runWorldUpdates();
@@ -183,12 +195,12 @@ public class GameSimulator implements Runnable {
       try {
         player1.transmitState(roundEnd);
       } catch (IOException e) {
-        log.warn(String.format("Match %d: Error transmitting data to player 1", matchId), e);
+        log.warn(String.format("Match %d:%d: Error transmitting data to player 1", matchId, roundId), e);
       }
       try {
         player2.transmitState(roundEnd);
       } catch (IOException e) {
-        log.warn(String.format("Match %d: Error transmitting data to player 2", matchId), e);
+        log.warn(String.format("Match %d:%d: Error transmitting data to player 2", matchId, roundId), e);
       }
     }
   }
