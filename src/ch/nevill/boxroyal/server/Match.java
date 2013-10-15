@@ -1,6 +1,8 @@
 package ch.nevill.boxroyal.server;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -200,17 +202,20 @@ public class Match implements Runnable {
       List<Bullet> oldBullets = entryState.getBulletList();
       for (final Bullet bullet : oldBullets) {
         
-        Iterable<Soldier.Builder> soldiersInPath
+        final Iterable<Soldier.Builder> soldiersInPath
             = Iterables.filter(simulationState.getSoldierBuilderList(),
                                new Predicate<Soldier.Builder>() {
           @Override
           public boolean apply(Soldier.Builder soldier) {
-            return soldier.getPlayerId() != bullet.getOwnerId()
-                && pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
+            return pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
           }
         });
         
-        Ordering<SoldierOrBuilder> proximityOrdering
+        if (!soldiersInPath.iterator().hasNext()) {
+          continue;
+        }
+        
+        final Ordering<SoldierOrBuilder> proximityOrdering
             = Ordering.natural().onResultOf(new Function<SoldierOrBuilder, Integer>() {
           @Override
           public Integer apply(SoldierOrBuilder soldier) {
@@ -219,17 +224,30 @@ public class Match implements Runnable {
           }
         });
         
-        Soldier.Builder target;
-        try {
-          target = proximityOrdering.min(soldiersInPath);
-        } catch (NoSuchElementException e) {
-          // bullet missed
-          continue;
+        final List<Soldier.Builder> hitOrderedSoldiers
+            = proximityOrdering.sortedCopy(soldiersInPath);
+        List<Soldier.Builder> hits = new ArrayList<>(); 
+        for (Soldier.Builder target : hitOrderedSoldiers) {
+          if (!target.getPosition().equals(hitOrderedSoldiers.get(0).getPosition())) {
+            break;
+          }
+          hits.add(target);
         }
         
-        // TODO: "kill" target
-        log.info(String.format(
-            "Match %d:%d: Soldier %s died.", matchId, roundId, target.getSoldierId()));
+        for (Soldier.Builder hit : hits) {
+          if (hit.getPlayerId() == bullet.getOwnerId()) {
+            log.info(String.format(
+              "Match %d:%d: Soldier %d blocked bullet from %d.",
+                  matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
+          }
+          else {
+          // TODO: "kill" target
+          log.info(String.format(
+            "Match %d:%d: Soldier %d killed by %d.",
+                matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
+          }
+        }
+        
       }
     }
 
