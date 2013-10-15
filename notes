@@ -1,0 +1,24 @@
+Grid (nodes ("squares") connected in cardinal directions)
+Some squares blocked ("boxes")
+Multiple (~3-4) actors per player
+Players can shoot, have one round to react after being shot at
+Shots travel in cardinal directions
+No turning limits
+
+Boxes block 2^(movement, sight, shots)?
+CTF?
+Shields?
+Ammunition?
+
+Respawn vs permadeath:
+  - permadeath makes first kill massively increase win%
+  -> respawns
+
+Respawn mechanism TBD
+  - should spawn out of range of enemy fire.
+
+Options:
+  - random location out of line of fire
+  - fix spawn locations, wait until safe
+  - random location, spawn cooldown, have chance to regroup
+  - spawn locations which are triggered by actor proximity (given #actors < max#actors) 

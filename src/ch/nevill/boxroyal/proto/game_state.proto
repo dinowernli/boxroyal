@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+import "common.proto";
+
+option java_package = "ch.nevill.boxroyal.proto";
+option java_multiple_files = true;
+option java_outer_classname = "GameStateProto";
+
+message Player {
+	optional int32 id = 1;
+}
+
+message Soldier {
+	optional int32 soldier_id = 3;
+	optional int32 player_id = 1;
+	optional Point position = 2;
+}
+
+message Bullet {
+	optional Point position = 1;
+	optional int32 owner_id = 2;
+	optional Direction direction = 3;
+}
+
+message Box {
+	optional bool blocking = 1;
+}
+
+message GameState {
+	optional int32 round = 6;
+
+	repeated Player player = 1;
+	repeated Soldier soldier = 2;
+	repeated Bullet bullet = 3;
+
+	optional Size size = 4;
+	repeated Box box = 5;
+}
