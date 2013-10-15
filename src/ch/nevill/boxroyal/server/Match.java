@@ -1,11 +1,14 @@
 package ch.nevill.boxroyal.server;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import ch.nevill.boxroyal.proto.Box;
+import ch.nevill.boxroyal.proto.Bullet;
 import ch.nevill.boxroyal.proto.Direction;
 import ch.nevill.boxroyal.proto.GameLog;
 import ch.nevill.boxroyal.proto.GameState;
@@ -14,9 +17,15 @@ import ch.nevill.boxroyal.proto.OperationError;
 import ch.nevill.boxroyal.proto.Point;
 import ch.nevill.boxroyal.proto.Point.Builder;
 import ch.nevill.boxroyal.proto.Round;
+import ch.nevill.boxroyal.proto.Size;
 import ch.nevill.boxroyal.proto.Soldier;
+import ch.nevill.boxroyal.proto.SoldierOrBuilder;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 
 public class Match implements Runnable {
   
@@ -56,6 +65,35 @@ public class Match implements Runnable {
         throw new IllegalArgumentException();
     }
     return builder.build();
+  }
+  
+  private static boolean pointInArea(Point point, Size area) {
+    return point.getX() >= 0
+        && point.getY() >= 0
+        && point.getX() < area.getWidth()
+        && point.getY() < area.getHeight();
+  }
+  
+  private static boolean pointInPath(Point start, Direction direction, Point target) {
+    if (start.getX() != target.getX() && start.getY() != target.getY()) {
+      return false;
+    }
+    if (start.getX() == target.getX() && start.getY() == target.getY()) {
+      return true;
+    }
+    
+    switch (direction.getNumber()) {
+      case Direction.NORTH_VALUE:
+        return target.getY() > start.getY();
+      case Direction.EAST_VALUE:
+        return target.getX() > start.getX();
+      case Direction.SOUTH_VALUE:
+        return target.getY() < start.getY();
+      case Direction.WEST_VALUE:
+        return target.getX() < start.getX();
+      default:
+        throw new IllegalArgumentException();
+    }
   }
   
   private Optional<Soldier.Builder> getSoldierById(int soldierId) {
@@ -126,6 +164,10 @@ public class Match implements Runnable {
         Point dest = applyDirection(
             soldier.get().getPosition(),
             operation.getMove().getDirection());
+        if (!pointInArea(dest, simulationState.getSize())) {
+          throw new OperationException(OperationError.INVALID_MOVEMENT);
+        }
+
         Box destBox = getBoxAt(dest);
         if (destBox.getBlocking()) {
           throw new OperationException(OperationError.INVALID_MOVEMENT);
@@ -133,6 +175,10 @@ public class Match implements Runnable {
         
         soldier.get().setPosition(dest);
       }
+    }
+    
+    private void runPreStep() {
+      simulationState.clearBullet();
     }
     
     private void runPlayerOperation(int playerId, Operation operation) {
@@ -150,8 +196,41 @@ public class Match implements Runnable {
           .setPlayerId(playerId);
     }
     
-    private void runWorldUpdates() {
-      // TODO: update in-flight bullets
+    private void runPostStep() {
+      List<Bullet> oldBullets = entryState.getBulletList();
+      for (final Bullet bullet : oldBullets) {
+        
+        Iterable<Soldier.Builder> soldiersInPath
+            = Iterables.filter(simulationState.getSoldierBuilderList(),
+                               new Predicate<Soldier.Builder>() {
+          @Override
+          public boolean apply(Soldier.Builder soldier) {
+            return soldier.getPlayerId() != bullet.getOwnerId()
+                && pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
+          }
+        });
+        
+        Ordering<SoldierOrBuilder> proximityOrdering
+            = Ordering.natural().onResultOf(new Function<SoldierOrBuilder, Integer>() {
+          @Override
+          public Integer apply(SoldierOrBuilder soldier) {
+            return Math.abs(soldier.getPosition().getX() - bullet.getPosition().getX())
+                + Math.abs(soldier.getPosition().getY() - bullet.getPosition().getY());
+          }
+        });
+        
+        Soldier.Builder target;
+        try {
+          target = proximityOrdering.min(soldiersInPath);
+        } catch (NoSuchElementException e) {
+          // bullet missed
+          continue;
+        }
+        
+        // TODO: "kill" target
+        log.info(String.format(
+            "Match %d:%d: Soldier %s died.", matchId, roundId, target.getSoldierId()));
+      }
     }
 
   }
@@ -173,6 +252,7 @@ public class Match implements Runnable {
     
     while (roundId < MAX_ROUNDS) {
       SimulationStep step = new SimulationStep();
+      step.runPreStep();
       
       try {
         for (Operation operation : player1.receiveOperations()) {
@@ -189,7 +269,7 @@ public class Match implements Runnable {
         log.warn(String.format("Match %d:%d: Error receiving data from player 2", matchId, roundId), e);
       }
       
-      step.runWorldUpdates();
+      step.runPostStep();
       
       GameState roundEnd = simulationState.build();
       try {
