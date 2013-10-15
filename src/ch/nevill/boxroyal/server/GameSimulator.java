@@ -65,9 +65,9 @@ public class GameSimulator implements Runnable {
   private GameState.Builder simulationState;
   private GameLog.Builder gameLog;
   private int roundId = 0;
-  private Client player1;
-  private Client player2;
-  private int matchId;
+  private final Client player1;
+  private final Client player2;
+  private final int matchId;
   
   public GameSimulator(Client player1, Client player2, int matchId) {
     this.player1 = player1;
@@ -167,14 +167,14 @@ public class GameSimulator implements Runnable {
           step.runPlayerOperation(1, operation);
         }
       } catch (IOException e) {
-        log.warn("Error receiving data from player 1", e);
+        log.warn(String.format("Match %d: Error receiving data from player 1", matchId), e);
       }
       try {
         for (Operation operation : player2.receiveOperations()) {
           step.runPlayerOperation(2, operation);
         }
       } catch (IOException e) {
-        log.warn("Error receiving data from player 2", e);
+        log.warn(String.format("Match %d: Error receiving data from player 2", matchId), e);
       }
       
       step.runWorldUpdates();
@@ -183,12 +183,12 @@ public class GameSimulator implements Runnable {
       try {
         player1.transmitState(roundEnd);
       } catch (IOException e) {
-        log.warn("Error transmitting data to player 1", e);
+        log.warn(String.format("Match %d: Error transmitting data to player 1", matchId), e);
       }
       try {
         player2.transmitState(roundEnd);
       } catch (IOException e) {
-        log.warn("Error transmitting data to player 2", e);
+        log.warn(String.format("Match %d: Error transmitting data to player 2", matchId), e);
       }
     }
   }
