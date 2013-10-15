@@ -10,6 +10,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class GameLobby implements Runnable {
   
   private BlockingQueue<Client> readyClients = new LinkedBlockingQueue<>();
+  private int nextMatchId = 1;
   
   public void run() {
     try {
@@ -23,7 +24,8 @@ public class GameLobby implements Runnable {
   }
   
   private void startGame(Client player1, Client player2) {
-    GameSimulator simulator = new GameSimulator(player1, player2);
+    GameSimulator simulator = new GameSimulator(player1, player2, nextMatchId);
+    ++nextMatchId;
     new Thread(simulator).start();
   }
   

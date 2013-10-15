@@ -1,6 +1,9 @@
 package ch.nevill.boxroyal.server;
 
-import java.util.Map;
+import java.io.IOException;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import ch.nevill.boxroyal.proto.Box;
 import ch.nevill.boxroyal.proto.Direction;
@@ -16,6 +19,8 @@ import ch.nevill.boxroyal.proto.Soldier;
 import com.google.common.base.Optional;
 
 public class GameSimulator implements Runnable {
+  
+  private static final Log log = LogFactory.getLog(GameSimulator.class);
   
   private static final int MAX_ROUNDS = 200;
 
@@ -62,10 +67,12 @@ public class GameSimulator implements Runnable {
   private int roundId = 0;
   private Client player1;
   private Client player2;
+  private int matchId;
   
-  public GameSimulator(Client player1, Client player2) {
+  public GameSimulator(Client player1, Client player2, int matchId) {
     this.player1 = player1;
     this.player2 = player2;
+    this.matchId = matchId;
   }
 
   class SimulationStep {
@@ -128,55 +135,61 @@ public class GameSimulator implements Runnable {
       }
     }
     
-    private void preStep() {
-      // Do nothing
-    }
-
-    private void operationsStep(Map<Integer, Operation> playerOperations) {
-      
-      SimulationStep step = new SimulationStep();
+    private void runPlayerOperation(int playerId, Operation operation) {
+      OperationError error = OperationError.NONE;
       Round.Builder round = gameLog.addRoundBuilder();
       round.setRoundId(roundId);
-      
-      for (Map.Entry<Integer, Operation> e : playerOperations.entrySet()) {
-        OperationError error = OperationError.NONE;
-        try {
-          step.applyOperation(e.getKey(), e.getValue());
-        } catch (OperationException exc) {
-          error = exc.getCode();
-        }
-        round.addOperationBuilder()
-            .setOperation(e.getValue())
-            .setError(error)
-            .setPlayerId(e.getKey());
+      try {
+        applyOperation(playerId, operation);
+      } catch (OperationException exc) {
+        error = exc.getCode();
       }
+      round.addOperationBuilder()
+          .setOperation(operation)
+          .setError(error)
+          .setPlayerId(playerId);
     }
     
-    private void postStep() {
+    private void runWorldUpdates() {
       // TODO: update in-flight bullets
-      
-      ++roundId;
     }
 
-  }
-
-  private void simulateStep() {
-    SimulationStep step = new SimulationStep();
-    step.preStep();
-    step.operationsStep(null);
-    step.postStep();
   }
 
   public void run() {
     // setup/send initial state
     
     while (roundId < MAX_ROUNDS) {
-      // receive operations
+      SimulationStep step = new SimulationStep();
       
-      // step
-      simulateStep();
+      try {
+        for (Operation operation : player1.receiveOperations()) {
+          step.runPlayerOperation(1, operation);
+        }
+      } catch (IOException e) {
+        log.warn("Error receiving data from player 1", e);
+      }
+      try {
+        for (Operation operation : player2.receiveOperations()) {
+          step.runPlayerOperation(2, operation);
+        }
+      } catch (IOException e) {
+        log.warn("Error receiving data from player 2", e);
+      }
       
-      // send result
+      step.runWorldUpdates();
+      
+      GameState roundEnd = simulationState.build();
+      try {
+        player1.transmitState(roundEnd);
+      } catch (IOException e) {
+        log.warn("Error transmitting data to player 1", e);
+      }
+      try {
+        player2.transmitState(roundEnd);
+      } catch (IOException e) {
+        log.warn("Error transmitting data to player 2", e);
+      }
     }
   }
   

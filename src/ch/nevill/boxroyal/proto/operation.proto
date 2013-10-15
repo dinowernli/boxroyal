@@ -21,3 +21,7 @@ message Operation {
 	optional Shoot shoot = 1;
 	optional Move move = 2;
 }
+
+message Turn {
+	repeated Operation operation = 1;
+}
