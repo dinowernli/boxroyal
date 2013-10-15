@@ -201,13 +201,19 @@ public class Match implements Runnable {
     
     private void runPlayerOperation(int playerId, Operation operation) {
       OperationError error = OperationError.NONE;
-      Round.Builder round = gameLog.addRoundBuilder();
-      round.setRoundId(roundId);
+      Round.Builder round = gameLog.getRoundBuilder(gameLog.getRoundCount()-1);
+      
       try {
-        applyOperation(playerId, operation);
+        if (round.getRoundId() != operation.getRoundId()) {
+          error = OperationError.WRONG_ROUND;
+        }
+        else {
+          applyOperation(playerId, operation);
+        }
       } catch (OperationException exc) {
         error = exc.getCode();
       }
+      
       round.addOperationBuilder()
           .setOperation(operation)
           .setError(error)
@@ -285,6 +291,7 @@ public class Match implements Runnable {
       step.runPreStep();
       
       for (MatchClient player : players) {
+        gameLog.addRoundBuilder().setRoundId(roundId);
         try {
           for (Operation operation : player.client.receiveOperations()) {
             step.runPlayerOperation(player.player.getId(), operation);
