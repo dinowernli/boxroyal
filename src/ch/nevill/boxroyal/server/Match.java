@@ -2,9 +2,7 @@ package ch.nevill.boxroyal.server;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -26,6 +24,7 @@ import ch.nevill.boxroyal.proto.SoldierOrBuilder;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
@@ -105,13 +104,11 @@ public class Match implements Runnable {
   private GameState.Builder simulationState;
   private GameLog.Builder gameLog;
   private int roundId = 0;
-  private final Client player1;
-  private final Client player2;
+  private final ImmutableList<Client> players;
   private final int matchId;
   
-  public Match(Client player1, Client player2, int matchId) {
-    this.player1 = player1;
-    this.player2 = player2;
+  public Match(List<Client> players, int matchId) {
+    this.players = ImmutableList.copyOf(players);
     this.matchId = matchId;
   }
 
@@ -211,7 +208,7 @@ public class Match implements Runnable {
           }
         });
         
-        if (!soldiersInPath.iterator().hasNext()) {
+        if (Iterables.isEmpty(soldiersInPath)) {
           continue;
         }
         
@@ -257,48 +254,44 @@ public class Match implements Runnable {
     // TODO: setup initial state
     
     gameLog.setStartState(simulationState.build());
-    try {
-      player1.transmitState(gameLog.getStartState());
-    } catch (IOException e) {
-      log.error(String.format("Match %d: Error transmitting initial state to player 1", matchId), e);
-    }
-    try {
-      player2.transmitState(gameLog.getStartState());
-    } catch (IOException e) {
-      log.error(String.format("Match %d: Error transmitting initial state to player 2", matchId), e);
+    int playerId = 0;
+    for (Client player : players) {
+      ++playerId;
+      try {
+        player.transmitState(gameLog.getStartState());
+      } catch (IOException e) {
+        log.error(String.format("Match %d: Error transmitting initial state to player 1", matchId), e);
+      }
     }
     
     while (roundId < MAX_ROUNDS) {
       SimulationStep step = new SimulationStep();
       step.runPreStep();
       
-      try {
-        for (Operation operation : player1.receiveOperations()) {
-          step.runPlayerOperation(1, operation);
+      playerId = 0;
+      for (Client player : players) {
+        ++playerId;
+        try {
+          for (Operation operation : player.receiveOperations()) {
+            step.runPlayerOperation(playerId, operation);
+          }
+        } catch (IOException e) {
+          log.warn(String.format("Match %d:%d: Error receiving turn from player %d",
+              matchId, roundId, playerId), e);
         }
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error receiving data from player 1", matchId, roundId), e);
-      }
-      try {
-        for (Operation operation : player2.receiveOperations()) {
-          step.runPlayerOperation(2, operation);
-        }
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error receiving data from player 2", matchId, roundId), e);
       }
       
       step.runPostStep();
-      
       GameState roundEnd = simulationState.build();
-      try {
-        player1.transmitState(roundEnd);
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error transmitting data to player 1", matchId, roundId), e);
-      }
-      try {
-        player2.transmitState(roundEnd);
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error transmitting data to player 2", matchId, roundId), e);
+      
+      playerId = 0;
+      for (Client player : players) {
+        try {
+          player.transmitState(roundEnd);
+        } catch (IOException e) {
+          log.warn(String.format("Match %d:%d: Error transmitting result to player %d",
+              matchId, roundId, playerId), e);
+        }
       }
     }
   }

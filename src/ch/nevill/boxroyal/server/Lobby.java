@@ -6,6 +6,8 @@ import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import com.google.common.collect.ImmutableList;
+
 
 public class Lobby implements Runnable {
   
@@ -24,7 +26,7 @@ public class Lobby implements Runnable {
   }
   
   private void startGame(Client player1, Client player2) {
-    Match simulator = new Match(player1, player2, nextMatchId);
+    Match simulator = new Match(ImmutableList.of(player1, player2), nextMatchId);
     ++nextMatchId;
     new Thread(simulator).start();
   }
