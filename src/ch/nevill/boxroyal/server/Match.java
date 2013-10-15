@@ -126,7 +126,7 @@ public class Match implements Runnable {
     }
 
     private Box getBoxAt(Point p) {
-      return entryState.getBoxList().get(p.getX() * entryState.getSize().getWidth() * p.getY());
+      return entryState.getBoxList().get(p.getX() + entryState.getSize().getWidth() * p.getY());
     }
 
     private void applyOperation(int playerId, Operation operation) throws OperationException {
