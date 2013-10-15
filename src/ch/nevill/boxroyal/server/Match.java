@@ -20,6 +20,7 @@ import ch.nevill.boxroyal.proto.Round;
 import ch.nevill.boxroyal.proto.Size;
 import ch.nevill.boxroyal.proto.Soldier;
 import ch.nevill.boxroyal.proto.SoldierOrBuilder;
+import ch.nevill.boxroyal.proto.View;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -260,7 +261,7 @@ public class Match implements Runnable {
     for (Client player : players) {
       ++playerId;
       try {
-        player.transmitState(gameLog.getStartState());
+        player.transmitState(View.newBuilder().setState(gameLog.getStartState()).build());
       } catch (IOException e) {
         log.error(String.format("Match %d: Error transmitting initial state to player 1", matchId), e);
       }
@@ -289,7 +290,7 @@ public class Match implements Runnable {
       playerId = 0;
       for (Client player : players) {
         try {
-          player.transmitState(roundEnd);
+          player.transmitState(View.newBuilder().setState(roundEnd).build());
         } catch (IOException e) {
           log.warn(String.format("Match %d:%d: Error transmitting result to player %d",
               matchId, roundId, playerId), e);

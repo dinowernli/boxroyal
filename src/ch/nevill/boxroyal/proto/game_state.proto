@@ -36,3 +36,7 @@ message GameState {
 	optional Size size = 4;
 	repeated Box box = 5;
 }
+
+message View {
+	optional GameState state = 1;
+}

@@ -6,9 +6,9 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
 
-import ch.nevill.boxroyal.proto.GameState;
 import ch.nevill.boxroyal.proto.Operation;
 import ch.nevill.boxroyal.proto.Turn;
+import ch.nevill.boxroyal.proto.View;
 
 class Client {
 
@@ -27,8 +27,12 @@ class Client {
     return turn.getOperationList();
   }
   
-  public void transmitState(GameState state) throws IOException {
-    state.writeDelimitedTo(transmitStream);
+  public void transmitState(View view) throws IOException {
+    view.writeDelimitedTo(transmitStream);
+  }
+  
+  public boolean isConnected() {
+    return socket.isConnected();
   }
   
 }
