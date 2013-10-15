@@ -35,4 +35,8 @@ class Client {
     return socket.isConnected();
   }
   
+  public String getName() {
+    return Integer.toString(hashCode());
+  }
+  
 }

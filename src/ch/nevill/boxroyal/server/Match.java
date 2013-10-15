@@ -14,6 +14,7 @@ import ch.nevill.boxroyal.proto.GameLog;
 import ch.nevill.boxroyal.proto.GameState;
 import ch.nevill.boxroyal.proto.Operation;
 import ch.nevill.boxroyal.proto.OperationError;
+import ch.nevill.boxroyal.proto.Player;
 import ch.nevill.boxroyal.proto.Point;
 import ch.nevill.boxroyal.proto.Point.Builder;
 import ch.nevill.boxroyal.proto.Round;
@@ -35,7 +36,7 @@ public class Match implements Runnable {
   
   private static final int MAX_ROUNDS = 200;
 
-  private class OperationException extends Exception {
+  private static class OperationException extends Exception {
     private static final long serialVersionUID = -2405849614106891603L;
     private OperationError code;
 
@@ -45,6 +46,15 @@ public class Match implements Runnable {
     
     public OperationError getCode() {
       return code;
+    }
+  }
+  
+  private static class MatchClient {
+    public final Client client;
+    public final Player player;
+    public MatchClient(int index, Client client, Player player) {
+      this.client = client;
+      this.player = player;
     }
   }
   
@@ -98,25 +108,29 @@ public class Match implements Runnable {
     }
   }
   
-  private Optional<Soldier.Builder> getSoldierById(int soldierId) {
-    return Optional.<Soldier.Builder>absent();
-  }
-  
   private GameState.Builder simulationState;
   private GameLog.Builder gameLog;
   private int roundId = 0;
-  private final ImmutableList<Client> players;
+  private final ImmutableList<MatchClient> players;
   private final int matchId;
   
   public Match(int matchId, List<Client> players, GameState startState) {
     if (players.size() != startState.getPlayerCount()) {
       throw new IllegalArgumentException();
     }
-    this.players = ImmutableList.copyOf(players);
+    ImmutableList.Builder<MatchClient> playersBuilder = ImmutableList.builder();
+    for (int i = 0; i < players.size(); i++) {
+      playersBuilder.add(new MatchClient(i, players.get(i), startState.getPlayer(i)));
+    }
+    this.players = playersBuilder.build();
     this.matchId = matchId;
     this.simulationState = startState.toBuilder();
   }
 
+  private Optional<Soldier.Builder> getSoldierById(int soldierId) {
+    throw new UnsupportedOperationException();
+  }
+  
   class SimulationStep {
 
     private final GameState entryState;
@@ -257,13 +271,12 @@ public class Match implements Runnable {
 
   public void run() {
     gameLog.setStartState(simulationState.build());
-    int playerId = 0;
-    for (Client player : players) {
-      ++playerId;
+    for (MatchClient player : players) {
       try {
-        player.transmitState(View.newBuilder().setState(gameLog.getStartState()).build());
+        player.client.transmitState(View.newBuilder().setState(gameLog.getStartState()).build());
       } catch (IOException e) {
-        log.error(String.format("Match %d: Error transmitting initial state to player 1", matchId), e);
+        log.error(String.format("Match %d: Error transmitting initial state to player %s",
+          matchId, player.client.getName()), e);
       }
     }
     
@@ -271,29 +284,26 @@ public class Match implements Runnable {
       SimulationStep step = new SimulationStep();
       step.runPreStep();
       
-      playerId = 0;
-      for (Client player : players) {
-        ++playerId;
+      for (MatchClient player : players) {
         try {
-          for (Operation operation : player.receiveOperations()) {
-            step.runPlayerOperation(playerId, operation);
+          for (Operation operation : player.client.receiveOperations()) {
+            step.runPlayerOperation(player.player.getId(), operation);
           }
         } catch (IOException e) {
           log.warn(String.format("Match %d:%d: Error receiving turn from player %d",
-              matchId, roundId, playerId), e);
+              matchId, roundId, player.client.getName()), e);
         }
       }
       
       step.runPostStep();
       GameState roundEnd = simulationState.build();
       
-      playerId = 0;
-      for (Client player : players) {
+      for (MatchClient player : players) {
         try {
-          player.transmitState(View.newBuilder().setState(roundEnd).build());
+          player.client.transmitState(View.newBuilder().setState(roundEnd).build());
         } catch (IOException e) {
           log.warn(String.format("Match %d:%d: Error transmitting result to player %d",
-              matchId, roundId, playerId), e);
+              matchId, roundId, player.client.getName()), e);
         }
       }
     }
