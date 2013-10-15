@@ -6,6 +6,8 @@ import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import ch.nevill.boxroyal.proto.GameState;
+
 import com.google.common.collect.ImmutableList;
 
 
@@ -26,7 +28,11 @@ public class Lobby implements Runnable {
   }
   
   private void startGame(Client player1, Client player2) {
-    Match simulator = new Match(ImmutableList.of(player1, player2), nextMatchId);
+    GameState.Builder stateBuilder = GameState.newBuilder();
+    stateBuilder.addPlayerBuilder().setId(1);
+    stateBuilder.addPlayerBuilder().setId(2);
+    Match simulator = new Match(
+        nextMatchId, ImmutableList.of(player1, player2), stateBuilder.build());
     ++nextMatchId;
     new Thread(simulator).start();
   }

@@ -107,9 +107,13 @@ public class Match implements Runnable {
   private final ImmutableList<Client> players;
   private final int matchId;
   
-  public Match(List<Client> players, int matchId) {
+  public Match(int matchId, List<Client> players, GameState startState) {
+    if (players.size() != startState.getPlayerCount()) {
+      throw new IllegalArgumentException();
+    }
     this.players = ImmutableList.copyOf(players);
     this.matchId = matchId;
+    this.simulationState = startState.toBuilder();
   }
 
   class SimulationStep {
@@ -251,8 +255,6 @@ public class Match implements Runnable {
   }
 
   public void run() {
-    // TODO: setup initial state
-    
     gameLog.setStartState(simulationState.build());
     int playerId = 0;
     for (Client player : players) {
