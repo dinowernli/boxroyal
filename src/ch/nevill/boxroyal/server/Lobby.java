@@ -7,9 +7,10 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 
-public class GameLobby implements Runnable {
+public class Lobby implements Runnable {
   
   private BlockingQueue<Client> readyClients = new LinkedBlockingQueue<>();
+  private int nextMatchId = 1;
   
   public void run() {
     try {
@@ -23,12 +24,13 @@ public class GameLobby implements Runnable {
   }
   
   private void startGame(Client player1, Client player2) {
-    GameSimulator simulator = new GameSimulator(player1, player2);
+    Match simulator = new Match(player1, player2, nextMatchId);
+    ++nextMatchId;
     new Thread(simulator).start();
   }
   
   public static void startServer() throws IOException {
-    GameLobby lobby = new GameLobby();
+    Lobby lobby = new Lobby();
     new Thread(lobby).start();
     ServerSocket serverSocket = new ServerSocket(45678);
     while (true) {
