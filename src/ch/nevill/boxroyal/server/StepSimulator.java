@@ -1,7 +1,9 @@
 package ch.nevill.boxroyal.server;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -30,6 +32,7 @@ class StepSimulator {
   private final ImmutableMap<Integer, Builder> soldierMap;
   private final MatchState.Builder matchState;
   private final Round.Builder round;
+  private final Set<Integer> actionedSoldiers;
 
   public StepSimulator(ImmutableMap<Integer, Soldier.Builder> soldierMap,
                         MatchState.Builder matchState,
@@ -38,6 +41,7 @@ class StepSimulator {
     this.matchState = matchState;
     this.entryState = matchState.build();
     this.round = round;
+    this.actionedSoldiers = new HashSet<>();
   }
 
   private int getRoundId() {
@@ -69,10 +73,14 @@ class StepSimulator {
       if (soldier.getPlayerId() != playerId) {
         throw new OperationException(OperationError.WRONG_PLAYER);
       }
+      if (actionedSoldiers.contains(soldier.getSoldierId())) {
+        throw new OperationException(OperationError.MULTIPLE_ACTIONS);
+      }
 
-      this.matchState.addBulletBuilder()
+      matchState.addBulletBuilder()
           .setPosition(soldier.getPosition())
           .setDirection(operation.getShoot().getDirection());
+      actionedSoldiers.add(soldier.getSoldierId());
     }
 
     if (operation.hasMove()) {
@@ -87,6 +95,9 @@ class StepSimulator {
       if (soldier.getPlayerId() != playerId) {
         throw new OperationException(OperationError.WRONG_PLAYER);
       }
+      if (actionedSoldiers.contains(soldier.getSoldierId())) {
+        throw new OperationException(OperationError.MULTIPLE_ACTIONS);
+      }
 
       Point dest = GeometryUtils.applyDirection(soldier.getPosition(), operation.getMove().getDirection());
       if (!GeometryUtils.pointInArea(dest, matchState.getSize())) {
@@ -99,6 +110,7 @@ class StepSimulator {
       }
 
       soldier.setPosition(dest);
+      actionedSoldiers.add(soldier.getSoldierId());
     }
   }
 

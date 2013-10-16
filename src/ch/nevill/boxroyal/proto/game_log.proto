@@ -14,6 +14,7 @@ enum OperationError {
 	INVALID_ID = 3;
 	WRONG_PLAYER = 4;
 	INVALID_MOVEMENT = 5;
+	MULTIPLE_ACTIONS = 6;
 }
 
 message ReceivedOperation {
