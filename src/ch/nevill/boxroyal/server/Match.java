@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -112,12 +113,13 @@ public class Match implements Runnable {
 
   private final GameState.Builder simulationState;
   private GameLog.Builder gameLog;
-  private final int roundId = 0;
+  private int roundId = 0;
   private final ImmutableList<MatchClient> players;
   private final int matchId;
   private final Map<Integer, Soldier.Builder> soldierIdMap;
+  private final Callable<Void> finishCallable;
 
-  public Match(int matchId, List<Client> players, GameState startState) {
+  public Match(int matchId, List<Client> players, GameState startState, Callable<Void> finishCallable) {
     if (players.size() != startState.getPlayerCount()) {
       throw new IllegalArgumentException();
     }
@@ -132,6 +134,7 @@ public class Match implements Runnable {
     for (Soldier.Builder s : this.simulationState.getSoldierBuilderList()) {
       this.soldierIdMap.put(s.getSoldierId(), s);
     }
+    this.finishCallable = finishCallable;
   }
 
   private Optional<Soldier.Builder> getSoldierById(int soldierId) {
@@ -282,6 +285,16 @@ public class Match implements Runnable {
 
   }
 
+  private void finished() {
+    // TODO: Write gameLog somewhere
+
+    try {
+      finishCallable.call();
+    } catch (Exception e) {
+      log.warn(String.format("Match %d: finishCallable failed", matchId), e);
+    }
+  }
+
   @Override
   public void run() {
     gameLog.setStartState(simulationState.build());
@@ -291,10 +304,12 @@ public class Match implements Runnable {
       } catch (IOException e) {
         log.error(String.format("Match %d: Error transmitting initial state to player %s",
           matchId, player.client.getName()), e);
+        finished();
+        return;
       }
     }
 
-    while (roundId < MAX_ROUNDS) {
+    for (; roundId < MAX_ROUNDS; ++roundId) {
       SimulationStep step = new SimulationStep();
       step.runPreStep();
 
@@ -322,6 +337,8 @@ public class Match implements Runnable {
         }
       }
     }
+
+    finished();
   }
 
 }

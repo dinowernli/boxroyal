@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import ch.nevill.boxroyal.arena.ArenaBuilder;
@@ -23,7 +24,19 @@ public class Lobby implements Runnable {
   public void run() {
     try {
       while (true) {
-        Client player1 = readyClients.take(), player2 = readyClients.take();
+        Client player1 = null, player2 = null;
+        while (player1 == null) {
+          player1 = readyClients.take();
+          if (!player1.isConnected()) {
+            player1 = null;
+          }
+        }
+        while (player2 == null) {
+          player2 = readyClients.take();
+          if (!player2.isConnected()) {
+            player2 = null;
+          }
+        }
         startGame(player1, player2);
       }
     } catch (InterruptedException e) {
@@ -31,13 +44,24 @@ public class Lobby implements Runnable {
     }
   }
 
-  private void startGame(Client player1, Client player2) {
+  private void startGame(final Client player1, final Client player2) {
     GameState.Builder stateBuilder = GameState.newBuilder();
     stateBuilder.addPlayerBuilder().setId(1);
     stateBuilder.addPlayerBuilder().setId(2);
     arenaBuilder.build(stateBuilder);
     Match simulator = new Match(
-        nextMatchId, ImmutableList.of(player1, player2), stateBuilder.build());
+        nextMatchId, ImmutableList.of(player1, player2), stateBuilder.build(), new Callable<Void>() {
+          @Override
+          public Void call() throws Exception {
+            if (player1.isConnected()) {
+              readyClients.add(player1);
+            }
+            if (player2.isConnected()) {
+              readyClients.add(player2);
+            }
+            return null;
+          }
+        });
     ++nextMatchId;
     new Thread(simulator).start();
   }
