@@ -60,10 +60,6 @@ public class Match implements Runnable {
     this.finishCallable = finishCallable;
   }
 
-  Optional<Soldier.Builder> getSoldierById(int soldierId) {
-    return Optional.fromNullable(soldierIdMap.get(soldierId));
-  }
-
   private void finished() {
     // TODO: Write gameLog somewhere
 
