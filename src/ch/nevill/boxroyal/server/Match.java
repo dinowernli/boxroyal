@@ -270,10 +270,10 @@ public class Match implements Runnable {
                   matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
           }
           else {
-          // TODO: "kill" target
-          log.info(String.format(
-            "Match %d:%d: Soldier %d killed by %d.",
-                matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
+            // TODO: "kill" target
+            log.info(String.format(
+              "Match %d:%d: Soldier %d killed by %d.",
+                  matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
           }
         }
 
