@@ -2,7 +2,9 @@ package ch.nevill.boxroyal.server;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -113,6 +115,7 @@ public class Match implements Runnable {
   private final int roundId = 0;
   private final ImmutableList<MatchClient> players;
   private final int matchId;
+  private final Map<Integer, Soldier.Builder> soldierIdMap;
 
   public Match(int matchId, List<Client> players, GameState startState) {
     if (players.size() != startState.getPlayerCount()) {
@@ -125,10 +128,14 @@ public class Match implements Runnable {
     this.players = playersBuilder.build();
     this.matchId = matchId;
     this.simulationState = startState.toBuilder();
+    this.soldierIdMap = new HashMap<>();
+    for (Soldier.Builder s : this.simulationState.getSoldierBuilderList()) {
+      this.soldierIdMap.put(s.getSoldierId(), s);
+    }
   }
 
   private Optional<Soldier.Builder> getSoldierById(int soldierId) {
-    throw new UnsupportedOperationException();
+    return Optional.fromNullable(soldierIdMap.get(soldierId));
   }
 
   class SimulationStep {
