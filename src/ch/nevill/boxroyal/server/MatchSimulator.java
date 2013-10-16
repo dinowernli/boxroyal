@@ -21,8 +21,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class Match implements Runnable {
-  private static final Log log = LogFactory.getLog(Match.class);
+public class MatchSimulator implements Runnable {
+  private static final Log log = LogFactory.getLog(MatchSimulator.class);
   private static final int MAX_ROUNDS = 200;
 
   final GameState.Builder simulationState;
@@ -42,7 +42,7 @@ public class Match implements Runnable {
     }
   }
 
-  public Match(int matchId, List<Client> players, GameState startState, Callable<Void> finishCallable) {
+  public MatchSimulator(int matchId, List<Client> players, GameState startState, Callable<Void> finishCallable) {
     if (players.size() != startState.getPlayerCount()) {
       throw new IllegalArgumentException();
     }
@@ -86,7 +86,7 @@ public class Match implements Runnable {
 
     for (; roundId < MAX_ROUNDS; ++roundId) {
       Round.Builder round = gameLog.addRoundBuilder().setRoundId(roundId);
-      SimulationStep step = new SimulationStep(
+      StepSimulator step = new StepSimulator(
           ImmutableMap.copyOf(soldierIdMap), simulationState, round, matchId);
       step.runPreStep();
 

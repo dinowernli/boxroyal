@@ -49,7 +49,7 @@ public class Lobby implements Runnable {
     stateBuilder.addPlayerBuilder().setId(1);
     stateBuilder.addPlayerBuilder().setId(2);
     arenaBuilder.build(stateBuilder);
-    Match simulator = new Match(
+    MatchSimulator simulator = new MatchSimulator(
         nextMatchId, ImmutableList.of(player1, player2), stateBuilder.build(), new Callable<Void>() {
           @Override
           public Void call() throws Exception {

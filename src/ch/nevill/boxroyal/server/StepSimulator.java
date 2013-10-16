@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
-class SimulationStep {
-  private static final Log log = LogFactory.getLog(SimulationStep.class);
+class StepSimulator {
+  private static final Log log = LogFactory.getLog(StepSimulator.class);
 
   private final GameState entryState;
   private ImmutableMap<Integer, Builder> soldierMap;
@@ -32,7 +32,7 @@ class SimulationStep {
   private Round.Builder round;
   private int matchId;
 
-  public SimulationStep(ImmutableMap<Integer, Soldier.Builder> soldierMap,
+  public StepSimulator(ImmutableMap<Integer, Soldier.Builder> soldierMap,
                         GameState.Builder gameState,
                         Round.Builder round,
                         int matchId) {
