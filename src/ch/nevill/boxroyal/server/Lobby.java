@@ -9,7 +9,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import ch.nevill.boxroyal.arena.ArenaBuilder;
 import ch.nevill.boxroyal.arena.RandomArenaBuilder;
-import ch.nevill.boxroyal.proto.GameState;
+import ch.nevill.boxroyal.proto.MatchConfig;
+import ch.nevill.boxroyal.proto.MatchState;
+import ch.nevill.boxroyal.proto.Player;
 
 import com.google.common.collect.ImmutableList;
 
@@ -45,12 +47,15 @@ public class Lobby implements Runnable {
   }
 
   private void startGame(final Client player1, final Client player2) {
-    GameState.Builder stateBuilder = GameState.newBuilder();
-    stateBuilder.addPlayerBuilder().setId(1);
-    stateBuilder.addPlayerBuilder().setId(2);
-    arenaBuilder.build(stateBuilder);
+    MatchConfig matchConfig = MatchConfig.newBuilder()
+        .setMatchId(nextMatchId)
+        .addPlayer(Player.newBuilder().setId(1))
+        .addPlayer(Player.newBuilder().setId(2))
+        .build();
+
+    MatchState state = arenaBuilder.build(matchConfig);
     MatchSimulator simulator = new MatchSimulator(
-        nextMatchId, ImmutableList.of(player1, player2), stateBuilder.build(), new Callable<Void>() {
+        nextMatchId, ImmutableList.of(player1, player2), state, new Callable<Void>() {
           @Override
           public Void call() throws Exception {
             if (player1.isConnected()) {

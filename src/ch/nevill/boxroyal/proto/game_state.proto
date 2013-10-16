@@ -26,10 +26,16 @@ message Box {
 	optional bool blocking = 1;
 }
 
-message GameState {
+message MatchConfig {
+	optional int32 match_id = 1;
+	repeated Player player = 2;
+}
+
+message MatchState {
+	optional MatchConfig config = 7;
+
 	optional int32 round = 6;
 
-	repeated Player player = 1;
 	repeated Soldier soldier = 2;
 	repeated Bullet bullet = 3;
 
@@ -38,5 +44,5 @@ message GameState {
 }
 
 message View {
-	optional GameState state = 1;
+	optional MatchState state = 1;
 }

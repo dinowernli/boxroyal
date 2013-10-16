@@ -10,14 +10,13 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import ch.nevill.boxroyal.proto.GameLog;
-import ch.nevill.boxroyal.proto.GameState;
+import ch.nevill.boxroyal.proto.MatchState;
 import ch.nevill.boxroyal.proto.Operation;
 import ch.nevill.boxroyal.proto.Player;
 import ch.nevill.boxroyal.proto.Round;
 import ch.nevill.boxroyal.proto.Soldier;
 import ch.nevill.boxroyal.proto.View;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -25,7 +24,7 @@ public class MatchSimulator implements Runnable {
   private static final Log log = LogFactory.getLog(MatchSimulator.class);
   private static final int MAX_ROUNDS = 200;
 
-  final GameState.Builder simulationState;
+  final MatchState.Builder simulationState;
   GameLog.Builder gameLog;
   int roundId = 0;
   private final ImmutableList<MatchClient> players;
@@ -42,13 +41,13 @@ public class MatchSimulator implements Runnable {
     }
   }
 
-  public MatchSimulator(int matchId, List<Client> players, GameState startState, Callable<Void> finishCallable) {
-    if (players.size() != startState.getPlayerCount()) {
+  public MatchSimulator(int matchId, List<Client> players, MatchState startState, Callable<Void> finishCallable) {
+    if (players.size() != startState.getConfig().getPlayerCount()) {
       throw new IllegalArgumentException();
     }
     ImmutableList.Builder<MatchClient> playersBuilder = ImmutableList.builder();
     for (int i = 0; i < players.size(); i++) {
-      playersBuilder.add(new MatchClient(players.get(i), startState.getPlayer(i)));
+      playersBuilder.add(new MatchClient(players.get(i), startState.getConfig().getPlayer(i)));
     }
     this.players = playersBuilder.build();
     this.matchId = matchId;
@@ -102,7 +101,7 @@ public class MatchSimulator implements Runnable {
       }
 
       step.runPostStep();
-      GameState roundEnd = simulationState.build();
+      MatchState roundEnd = simulationState.build();
 
       for (MatchClient player : players) {
         try {

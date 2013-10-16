@@ -28,6 +28,6 @@ message Round {
 }
 
 message GameLog {
-	optional GameState start_state = 1;
+	optional MatchState start_state = 1;
 	repeated Round round = 2;
 }

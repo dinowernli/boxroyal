@@ -1,7 +1,8 @@
 package ch.nevill.boxroyal.arena;
 
-import ch.nevill.boxroyal.proto.GameState;
+import ch.nevill.boxroyal.proto.MatchConfig;
+import ch.nevill.boxroyal.proto.MatchState;
 
 public interface ArenaBuilder {
-  public void build(GameState.Builder stateBuilder);
+  public MatchState build(MatchConfig config);
 }

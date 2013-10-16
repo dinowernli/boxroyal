@@ -8,7 +8,7 @@ import org.apache.commons.logging.LogFactory;
 
 import ch.nevill.boxroyal.proto.Box;
 import ch.nevill.boxroyal.proto.Bullet;
-import ch.nevill.boxroyal.proto.GameState;
+import ch.nevill.boxroyal.proto.MatchState;
 import ch.nevill.boxroyal.proto.Operation;
 import ch.nevill.boxroyal.proto.OperationError;
 import ch.nevill.boxroyal.proto.Point;
@@ -26,19 +26,19 @@ import com.google.common.collect.Ordering;
 class StepSimulator {
   private static final Log log = LogFactory.getLog(StepSimulator.class);
 
-  private final GameState entryState;
-  private ImmutableMap<Integer, Builder> soldierMap;
-  private GameState.Builder gameState;
-  private Round.Builder round;
-  private int matchId;
+  private final MatchState entryState;
+  private final ImmutableMap<Integer, Builder> soldierMap;
+  private final MatchState.Builder matchState;
+  private final Round.Builder round;
+  private final int matchId;
 
   public StepSimulator(ImmutableMap<Integer, Soldier.Builder> soldierMap,
-                        GameState.Builder gameState,
+                        MatchState.Builder matchState,
                         Round.Builder round,
                         int matchId) {
     this.soldierMap = soldierMap;
-    this.gameState = gameState;
-    this.entryState = gameState.build();
+    this.matchState = matchState;
+    this.entryState = matchState.build();
     this.round = round;
     this.matchId = matchId;
   }
@@ -65,7 +65,7 @@ class StepSimulator {
         throw new OperationException(OperationError.WRONG_PLAYER);
       }
 
-      this.gameState.addBulletBuilder()
+      this.matchState.addBulletBuilder()
           .setPosition(soldier.getPosition())
           .setDirection(operation.getShoot().getDirection());
     }
@@ -84,7 +84,7 @@ class StepSimulator {
       }
 
       Point dest = GeometryUtils.applyDirection(soldier.getPosition(), operation.getMove().getDirection());
-      if (!GeometryUtils.pointInArea(dest, gameState.getSize())) {
+      if (!GeometryUtils.pointInArea(dest, matchState.getSize())) {
         throw new OperationException(OperationError.INVALID_MOVEMENT);
       }
 
@@ -98,7 +98,7 @@ class StepSimulator {
   }
 
   void runPreStep() {
-    gameState.clearBullet();
+    matchState.clearBullet();
   }
 
   void runPlayerOperation(int playerId, Operation operation) {
@@ -125,7 +125,7 @@ class StepSimulator {
     for (final Bullet bullet : oldBullets) {
 
       final Iterable<Soldier.Builder> soldiersInPath =
-          Iterables.filter(gameState.getSoldierBuilderList(), new Predicate<Soldier.Builder>() {
+          Iterables.filter(matchState.getSoldierBuilderList(), new Predicate<Soldier.Builder>() {
             @Override
             public boolean apply(Soldier.Builder soldier) {
               return GeometryUtils.pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
