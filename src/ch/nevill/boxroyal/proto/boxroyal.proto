@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+import "game_state.proto";
+import "operation.proto";
+import "game_log.proto";
+
+option java_outer_classname = "BoxroyalProto";
+option java_package = "ch.nevill.boxroyal.proto";
+option java_multiple_files = true;
+
+message ClientRequest {
+	optional Turn turn = 1;
+}
+
+message ClientResponse {
+	optional View matchView = 1;
+	optional OperationError error = 3;
+	optional string message = 2;
+}
