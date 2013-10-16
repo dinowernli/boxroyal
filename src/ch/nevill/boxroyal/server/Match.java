@@ -1,8 +1,11 @@
 package ch.nevill.boxroyal.server;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -14,38 +17,50 @@ import ch.nevill.boxroyal.proto.GameLog;
 import ch.nevill.boxroyal.proto.GameState;
 import ch.nevill.boxroyal.proto.Operation;
 import ch.nevill.boxroyal.proto.OperationError;
+import ch.nevill.boxroyal.proto.Player;
 import ch.nevill.boxroyal.proto.Point;
 import ch.nevill.boxroyal.proto.Point.Builder;
 import ch.nevill.boxroyal.proto.Round;
 import ch.nevill.boxroyal.proto.Size;
 import ch.nevill.boxroyal.proto.Soldier;
 import ch.nevill.boxroyal.proto.SoldierOrBuilder;
+import ch.nevill.boxroyal.proto.View;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 public class Match implements Runnable {
-  
+
   private static final Log log = LogFactory.getLog(Match.class);
-  
+
   private static final int MAX_ROUNDS = 200;
 
-  private class OperationException extends Exception {
+  private static class OperationException extends Exception {
     private static final long serialVersionUID = -2405849614106891603L;
-    private OperationError code;
+    private final OperationError code;
 
     public OperationException(OperationError code) {
       this.code = code;
     }
-    
+
     public OperationError getCode() {
       return code;
     }
   }
-  
+
+  private static class MatchClient {
+    public final Client client;
+    public final Player player;
+    public MatchClient(Client client, Player player) {
+      this.client = client;
+      this.player = player;
+    }
+  }
+
   private static Point applyDirection(Point point, Direction direction) {
     Builder builder = point.toBuilder();
     switch (direction.getNumber()) {
@@ -66,14 +81,14 @@ public class Match implements Runnable {
     }
     return builder.build();
   }
-  
+
   private static boolean pointInArea(Point point, Size area) {
     return point.getX() >= 0
         && point.getY() >= 0
         && point.getX() < area.getWidth()
         && point.getY() < area.getHeight();
   }
-  
+
   private static boolean pointInPath(Point start, Direction direction, Point target) {
     if (start.getX() != target.getX() && start.getY() != target.getY()) {
       return false;
@@ -81,7 +96,7 @@ public class Match implements Runnable {
     if (start.getX() == target.getX() && start.getY() == target.getY()) {
       return true;
     }
-    
+
     switch (direction.getNumber()) {
       case Direction.NORTH_VALUE:
         return target.getY() > start.getY();
@@ -95,22 +110,35 @@ public class Match implements Runnable {
         throw new IllegalArgumentException();
     }
   }
-  
-  private Optional<Soldier.Builder> getSoldierById(int soldierId) {
-    return Optional.<Soldier.Builder>absent();
-  }
-  
-  private GameState.Builder simulationState;
+
+  private final GameState.Builder simulationState;
   private GameLog.Builder gameLog;
   private int roundId = 0;
-  private final Client player1;
-  private final Client player2;
+  private final ImmutableList<MatchClient> players;
   private final int matchId;
-  
-  public Match(Client player1, Client player2, int matchId) {
-    this.player1 = player1;
-    this.player2 = player2;
+  private final Map<Integer, Soldier.Builder> soldierIdMap;
+  private final Callable<Void> finishCallable;
+
+  public Match(int matchId, List<Client> players, GameState startState, Callable<Void> finishCallable) {
+    if (players.size() != startState.getPlayerCount()) {
+      throw new IllegalArgumentException();
+    }
+    ImmutableList.Builder<MatchClient> playersBuilder = ImmutableList.builder();
+    for (int i = 0; i < players.size(); i++) {
+      playersBuilder.add(new MatchClient(players.get(i), startState.getPlayer(i)));
+    }
+    this.players = playersBuilder.build();
     this.matchId = matchId;
+    this.simulationState = startState.toBuilder();
+    this.soldierIdMap = new HashMap<>();
+    for (Soldier.Builder s : this.simulationState.getSoldierBuilderList()) {
+      this.soldierIdMap.put(s.getSoldierId(), s);
+    }
+    this.finishCallable = finishCallable;
+  }
+
+  private Optional<Soldier.Builder> getSoldierById(int soldierId) {
+    return Optional.fromNullable(soldierIdMap.get(soldierId));
   }
 
   class SimulationStep {
@@ -122,7 +150,7 @@ public class Match implements Runnable {
     }
 
     private Box getBoxAt(Point p) {
-      return entryState.getBoxList().get(p.getX() * entryState.getSize().getWidth() * p.getY());
+      return entryState.getBoxList().get(p.getX() + entryState.getSize().getWidth() * p.getY());
     }
 
     private void applyOperation(int playerId, Operation operation) throws OperationException {
@@ -134,7 +162,7 @@ public class Match implements Runnable {
         if (!operation.getShoot().hasSoldierId()) {
           throw new OperationException(OperationError.INVALID_FIELD);
         }
-        
+
         Optional<Soldier.Builder> soldier = getSoldierById(operation.getShoot().getSoldierId());
         if (!soldier.isPresent()) {
           throw new OperationException(OperationError.INVALID_ID);
@@ -142,7 +170,7 @@ public class Match implements Runnable {
         if (soldier.get().getPlayerId() != playerId) {
           throw new OperationException(OperationError.WRONG_PLAYER);
         }
-        
+
         simulationState.addBulletBuilder()
             .setPosition(soldier.get().getPosition())
             .setDirection(operation.getShoot().getDirection());
@@ -152,7 +180,7 @@ public class Match implements Runnable {
         if (!operation.getMove().hasSoldierId()) {
           throw new OperationException(OperationError.INVALID_FIELD);
         }
-        
+
         Optional<Soldier.Builder> soldier = getSoldierById(operation.getMove().getSoldierId());
         if (!soldier.isPresent()) {
           throw new OperationException(OperationError.INVALID_ID);
@@ -160,7 +188,7 @@ public class Match implements Runnable {
         if (soldier.get().getPlayerId() != playerId) {
           throw new OperationException(OperationError.WRONG_PLAYER);
         }
-        
+
         Point dest = applyDirection(
             soldier.get().getPosition(),
             operation.getMove().getDirection());
@@ -172,45 +200,54 @@ public class Match implements Runnable {
         if (destBox.getBlocking()) {
           throw new OperationException(OperationError.INVALID_MOVEMENT);
         }
-        
+
         soldier.get().setPosition(dest);
       }
     }
-    
+
     private void runPreStep() {
       simulationState.clearBullet();
     }
-    
+
     private void runPlayerOperation(int playerId, Operation operation) {
       OperationError error = OperationError.NONE;
-      Round.Builder round = gameLog.addRoundBuilder();
-      round.setRoundId(roundId);
+      Round.Builder round = gameLog.getRoundBuilder(gameLog.getRoundCount()-1);
+
       try {
-        applyOperation(playerId, operation);
+        if (round.getRoundId() != operation.getRoundId()) {
+          error = OperationError.WRONG_ROUND;
+        }
+        else {
+          applyOperation(playerId, operation);
+        }
       } catch (OperationException exc) {
         error = exc.getCode();
       }
+
       round.addOperationBuilder()
           .setOperation(operation)
           .setError(error)
           .setPlayerId(playerId);
     }
-    
+
     private void runPostStep() {
       List<Bullet> oldBullets = entryState.getBulletList();
       for (final Bullet bullet : oldBullets) {
-        
-        Iterable<Soldier.Builder> soldiersInPath
+
+        final Iterable<Soldier.Builder> soldiersInPath
             = Iterables.filter(simulationState.getSoldierBuilderList(),
                                new Predicate<Soldier.Builder>() {
           @Override
           public boolean apply(Soldier.Builder soldier) {
-            return soldier.getPlayerId() != bullet.getOwnerId()
-                && pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
+            return pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
           }
         });
-        
-        Ordering<SoldierOrBuilder> proximityOrdering
+
+        if (Iterables.isEmpty(soldiersInPath)) {
+          continue;
+        }
+
+        final Ordering<SoldierOrBuilder> proximityOrdering
             = Ordering.natural().onResultOf(new Function<SoldierOrBuilder, Integer>() {
           @Override
           public Integer apply(SoldierOrBuilder soldier) {
@@ -218,71 +255,90 @@ public class Match implements Runnable {
                 + Math.abs(soldier.getPosition().getY() - bullet.getPosition().getY());
           }
         });
-        
-        Soldier.Builder target;
-        try {
-          target = proximityOrdering.min(soldiersInPath);
-        } catch (NoSuchElementException e) {
-          // bullet missed
-          continue;
+
+        final List<Soldier.Builder> hitOrderedSoldiers
+            = proximityOrdering.sortedCopy(soldiersInPath);
+        List<Soldier.Builder> hits = new ArrayList<>();
+        for (Soldier.Builder target : hitOrderedSoldiers) {
+          if (!target.getPosition().equals(hitOrderedSoldiers.get(0).getPosition())) {
+            break;
+          }
+          hits.add(target);
         }
-        
-        // TODO: "kill" target
-        log.info(String.format(
-            "Match %d:%d: Soldier %s died.", matchId, roundId, target.getSoldierId()));
+
+        for (Soldier.Builder hit : hits) {
+          if (hit.getPlayerId() == bullet.getOwnerId()) {
+            log.info(String.format(
+              "Match %d:%d: Soldier %d blocked bullet from %d.",
+                  matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
+          }
+          else {
+            // TODO: "kill" target
+            log.info(String.format(
+              "Match %d:%d: Soldier %d killed by %d.",
+                  matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
+          }
+        }
+
       }
     }
 
   }
 
+  private void finished() {
+    // TODO: Write gameLog somewhere
+
+    try {
+      finishCallable.call();
+    } catch (Exception e) {
+      log.warn(String.format("Match %d: finishCallable failed", matchId), e);
+    }
+  }
+
+  @Override
   public void run() {
-    // TODO: setup initial state
-    
     gameLog.setStartState(simulationState.build());
-    try {
-      player1.transmitState(gameLog.getStartState());
-    } catch (IOException e) {
-      log.error(String.format("Match %d: Error transmitting initial state to player 1", matchId), e);
+    for (MatchClient player : players) {
+      try {
+        player.client.transmitState(View.newBuilder().setState(gameLog.getStartState()).build());
+      } catch (IOException e) {
+        log.error(String.format("Match %d: Error transmitting initial state to player %s",
+          matchId, player.client.getName()), e);
+        finished();
+        return;
+      }
     }
-    try {
-      player2.transmitState(gameLog.getStartState());
-    } catch (IOException e) {
-      log.error(String.format("Match %d: Error transmitting initial state to player 2", matchId), e);
-    }
-    
-    while (roundId < MAX_ROUNDS) {
+
+    for (; roundId < MAX_ROUNDS; ++roundId) {
       SimulationStep step = new SimulationStep();
       step.runPreStep();
-      
-      try {
-        for (Operation operation : player1.receiveOperations()) {
-          step.runPlayerOperation(1, operation);
+
+      for (MatchClient player : players) {
+        gameLog.addRoundBuilder().setRoundId(roundId);
+        try {
+          for (Operation operation : player.client.receiveOperations()) {
+            step.runPlayerOperation(player.player.getId(), operation);
+          }
+        } catch (IOException e) {
+          log.warn(String.format("Match %d:%d: Error receiving turn from player %d",
+              matchId, roundId, player.client.getName()), e);
         }
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error receiving data from player 1", matchId, roundId), e);
       }
-      try {
-        for (Operation operation : player2.receiveOperations()) {
-          step.runPlayerOperation(2, operation);
-        }
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error receiving data from player 2", matchId, roundId), e);
-      }
-      
+
       step.runPostStep();
-      
       GameState roundEnd = simulationState.build();
-      try {
-        player1.transmitState(roundEnd);
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error transmitting data to player 1", matchId, roundId), e);
-      }
-      try {
-        player2.transmitState(roundEnd);
-      } catch (IOException e) {
-        log.warn(String.format("Match %d:%d: Error transmitting data to player 2", matchId, roundId), e);
+
+      for (MatchClient player : players) {
+        try {
+          player.client.transmitState(View.newBuilder().setState(roundEnd).build());
+        } catch (IOException e) {
+          log.warn(String.format("Match %d:%d: Error transmitting result to player %d",
+              matchId, roundId, player.client.getName()), e);
+        }
       }
     }
+
+    finished();
   }
-  
+
 }
