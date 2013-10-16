@@ -18,6 +18,7 @@ class Client {
 
   public Client(Socket s) throws IOException {
     this.socket = s;
+    // TODO: timeouts, keepalives?
     this.receiveStream = socket.getInputStream();
     this.transmitStream = socket.getOutputStream();
   }
