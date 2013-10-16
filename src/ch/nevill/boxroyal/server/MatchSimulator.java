@@ -26,9 +26,7 @@ public class MatchSimulator implements Runnable {
 
   final MatchState.Builder simulationState;
   GameLog.Builder gameLog;
-  int roundId = 0;
   private final ImmutableList<MatchClient> players;
-  final int matchId;
   private final Map<Integer, Soldier.Builder> soldierIdMap;
   private final Callable<Void> finishCallable;
 
@@ -41,7 +39,7 @@ public class MatchSimulator implements Runnable {
     }
   }
 
-  public MatchSimulator(int matchId, List<Client> players, MatchState startState, Callable<Void> finishCallable) {
+  public MatchSimulator(List<Client> players, MatchState startState, Callable<Void> finishCallable) {
     if (players.size() != startState.getConfig().getPlayerCount()) {
       throw new IllegalArgumentException();
     }
@@ -50,7 +48,6 @@ public class MatchSimulator implements Runnable {
       playersBuilder.add(new MatchClient(players.get(i), startState.getConfig().getPlayer(i)));
     }
     this.players = playersBuilder.build();
-    this.matchId = matchId;
     this.simulationState = startState.toBuilder();
     this.soldierIdMap = new HashMap<>();
     for (Soldier.Builder s : this.simulationState.getSoldierBuilderList()) {
@@ -59,13 +56,21 @@ public class MatchSimulator implements Runnable {
     this.finishCallable = finishCallable;
   }
 
+  private int getRoundId() {
+    return simulationState.getRound();
+  }
+
+  private int getMatchId() {
+    return simulationState.getConfig().getMatchId();
+  }
+
   private void finished() {
     // TODO: Write gameLog somewhere
 
     try {
       finishCallable.call();
     } catch (Exception e) {
-      log.warn(String.format("Match %d: finishCallable failed", matchId), e);
+      log.warn(String.format("Match %d: finishCallable failed", getMatchId()), e);
     }
   }
 
@@ -77,16 +82,16 @@ public class MatchSimulator implements Runnable {
         player.client.transmitState(View.newBuilder().setState(gameLog.getStartState()).build());
       } catch (IOException e) {
         log.error(String.format("Match %d: Error transmitting initial state to player %s",
-          matchId, player.client.getName()), e);
+            getRoundId(), player.client.getName()), e);
         finished();
         return;
       }
     }
 
-    for (; roundId < MAX_ROUNDS; ++roundId) {
-      Round.Builder round = gameLog.addRoundBuilder().setRoundId(roundId);
+    for (; getRoundId() < MAX_ROUNDS; simulationState.setRound(getRoundId() + 1)) {
+      Round.Builder round = gameLog.addRoundBuilder().setRoundId(getRoundId());
       StepSimulator step = new StepSimulator(
-          ImmutableMap.copyOf(soldierIdMap), simulationState, round, matchId);
+          ImmutableMap.copyOf(soldierIdMap), simulationState, round);
       step.runPreStep();
 
       for (MatchClient player : players) {
@@ -96,7 +101,7 @@ public class MatchSimulator implements Runnable {
           }
         } catch (IOException e) {
           log.warn(String.format("Match %d:%d: Error receiving turn from player %d",
-              matchId, roundId, player.client.getName()), e);
+              getMatchId(), getRoundId(), player.client.getName()), e);
         }
       }
 
@@ -108,10 +113,11 @@ public class MatchSimulator implements Runnable {
           player.client.transmitState(View.newBuilder().setState(roundEnd).build());
         } catch (IOException e) {
           log.warn(String.format("Match %d:%d: Error transmitting result to player %d",
-              matchId, roundId, player.client.getName()), e);
+              getMatchId(), getRoundId(), player.client.getName()), e);
         }
       }
     }
+
     finished();
   }
 }

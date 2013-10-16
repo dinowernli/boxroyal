@@ -52,10 +52,13 @@ public class Lobby implements Runnable {
         .addPlayer(Player.newBuilder().setId(1))
         .addPlayer(Player.newBuilder().setId(2))
         .build();
+    ++nextMatchId;
 
     MatchState state = arenaBuilder.build(matchConfig);
+    state = state.toBuilder().setConfig(matchConfig).setRound(0).build();
+
     MatchSimulator simulator = new MatchSimulator(
-        nextMatchId, ImmutableList.of(player1, player2), state, new Callable<Void>() {
+        ImmutableList.of(player1, player2), state, new Callable<Void>() {
           @Override
           public Void call() throws Exception {
             if (player1.isConnected()) {
@@ -67,7 +70,6 @@ public class Lobby implements Runnable {
             return null;
           }
         });
-    ++nextMatchId;
     new Thread(simulator).start();
   }
 

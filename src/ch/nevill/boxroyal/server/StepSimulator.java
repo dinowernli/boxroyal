@@ -30,17 +30,22 @@ class StepSimulator {
   private final ImmutableMap<Integer, Builder> soldierMap;
   private final MatchState.Builder matchState;
   private final Round.Builder round;
-  private final int matchId;
 
   public StepSimulator(ImmutableMap<Integer, Soldier.Builder> soldierMap,
                         MatchState.Builder matchState,
-                        Round.Builder round,
-                        int matchId) {
+                        Round.Builder round) {
     this.soldierMap = soldierMap;
     this.matchState = matchState;
     this.entryState = matchState.build();
     this.round = round;
-    this.matchId = matchId;
+  }
+
+  private int getRoundId() {
+    return round.getRoundId();
+  }
+
+  private int getMatchId() {
+    return entryState.getConfig().getMatchId();
   }
 
   private Box getBoxAt(Point p) {
@@ -104,7 +109,7 @@ class StepSimulator {
   void runPlayerOperation(int playerId, Operation operation) {
     OperationError error = OperationError.NONE;
     try {
-      if (round.getRoundId() != operation.getRoundId()) {
+      if (getRoundId() != operation.getRoundId()) {
         error = OperationError.WRONG_ROUND;
       }
       else {
@@ -158,12 +163,12 @@ class StepSimulator {
       for (Soldier.Builder hit : hits) {
         if (hit.getPlayerId() == bullet.getOwnerId()) {
           log.info(String.format("Match %d:%d: Soldier %d blocked bullet from %d.",
-              matchId, round.getRoundId(), hit.getSoldierId(), bullet.getOwnerId()));
+              getMatchId(), getRoundId(), hit.getSoldierId(), bullet.getOwnerId()));
         }
         else {
           // TODO: "kill" target
           log.info(String.format("Match %d:%d: Soldier %d killed by %d.",
-              matchId, round.getRoundId(), hit.getSoldierId(), bullet.getOwnerId()));
+              getMatchId(), getRoundId(), hit.getSoldierId(), bullet.getOwnerId()));
         }
       }
     }
