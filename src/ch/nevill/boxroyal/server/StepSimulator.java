@@ -99,8 +99,8 @@ class StepSimulator {
         throw new OperationException(OperationError.MULTIPLE_ACTIONS);
       }
 
-      Point dest = GeometryUtils.applyDirection(soldier.getPosition(), operation.getMove().getDirection());
-      if (!GeometryUtils.pointInArea(dest, matchState.getSize())) {
+      Point dest = GeometryUtils.movePointInDirection(soldier.getPosition(), operation.getMove().getDirection());
+      if (!GeometryUtils.isPointInArea(dest, matchState.getSize())) {
         throw new OperationException(OperationError.INVALID_MOVEMENT);
       }
 
@@ -145,7 +145,7 @@ class StepSimulator {
           Iterables.filter(matchState.getSoldierBuilderList(), new Predicate<Soldier.Builder>() {
             @Override
             public boolean apply(Soldier.Builder soldier) {
-              return GeometryUtils.pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
+              return GeometryUtils.isPointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
             }
           });
 
