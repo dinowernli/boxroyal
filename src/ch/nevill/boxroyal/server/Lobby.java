@@ -26,27 +26,23 @@ public class Lobby implements Runnable {
   public void run() {
     try {
       while (true) {
-        Client player1 = null, player2 = null;
-        while (player1 == null) {
-          player1 = readyClients.take();
-          if (!player1.isConnected()) {
-            player1 = null;
+        int added = 0;
+        ImmutableList.Builder<Client> players = ImmutableList.builder();
+        while (added < 2) {
+          Client newPlayer = readyClients.take();
+          if (newPlayer.isConnected()) {
+            players.add(newPlayer);
+            ++added;
           }
         }
-        while (player2 == null) {
-          player2 = readyClients.take();
-          if (!player2.isConnected()) {
-            player2 = null;
-          }
-        }
-        startGame(player1, player2);
+        startGame(players.build());
       }
     } catch (InterruptedException e) {
       return;
     }
   }
 
-  private void startGame(final Client player1, final Client player2) {
+  private void startGame(final ImmutableList<Client> players) {
     MatchConfig matchConfig = MatchConfig.newBuilder()
         .setMatchId(nextMatchId)
         .addPlayer(Player.newBuilder().setId(1))
@@ -58,14 +54,13 @@ public class Lobby implements Runnable {
     state = state.toBuilder().setConfig(matchConfig).setRound(0).build();
 
     MatchSimulator simulator = new MatchSimulator(
-        ImmutableList.of(player1, player2), state, new Callable<Void>() {
+        players, state, new Callable<Void>() {
           @Override
           public Void call() throws Exception {
-            if (player1.isConnected()) {
-              readyClients.add(player1);
-            }
-            if (player2.isConnected()) {
-              readyClients.add(player2);
+            for (Client player : players) {
+              if (player.isConnected()) {
+                readyClients.add(player);
+              }
             }
             return null;
           }
