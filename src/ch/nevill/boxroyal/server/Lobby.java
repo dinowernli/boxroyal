@@ -14,11 +14,12 @@ import com.google.common.collect.ImmutableList;
 
 
 public class Lobby implements Runnable {
-  
-  private BlockingQueue<Client> readyClients = new LinkedBlockingQueue<>();
+
+  private final BlockingQueue<Client> readyClients = new LinkedBlockingQueue<>();
   private int nextMatchId = 1;
-  private ArenaBuilder arenaBuilder = new RandomArenaBuilder(20, 20);
-  
+  private final ArenaBuilder arenaBuilder = new RandomArenaBuilder(20, 20);
+
+  @Override
   public void run() {
     try {
       while (true) {
@@ -29,7 +30,7 @@ public class Lobby implements Runnable {
       return;
     }
   }
-  
+
   private void startGame(Client player1, Client player2) {
     GameState.Builder stateBuilder = GameState.newBuilder();
     stateBuilder.addPlayerBuilder().setId(1);
@@ -40,7 +41,7 @@ public class Lobby implements Runnable {
     ++nextMatchId;
     new Thread(simulator).start();
   }
-  
+
   public static void startServer() throws IOException {
     Lobby lobby = new Lobby();
     new Thread(lobby).start();
@@ -51,7 +52,7 @@ public class Lobby implements Runnable {
       lobby.readyClients.add(c);
     }
   }
-  
+
   public static void main(String[] args) {
     try {
       startServer();

@@ -31,24 +31,24 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 public class Match implements Runnable {
-  
+
   private static final Log log = LogFactory.getLog(Match.class);
-  
+
   private static final int MAX_ROUNDS = 200;
 
   private static class OperationException extends Exception {
     private static final long serialVersionUID = -2405849614106891603L;
-    private OperationError code;
+    private final OperationError code;
 
     public OperationException(OperationError code) {
       this.code = code;
     }
-    
+
     public OperationError getCode() {
       return code;
     }
   }
-  
+
   private static class MatchClient {
     public final Client client;
     public final Player player;
@@ -57,7 +57,7 @@ public class Match implements Runnable {
       this.player = player;
     }
   }
-  
+
   private static Point applyDirection(Point point, Direction direction) {
     Builder builder = point.toBuilder();
     switch (direction.getNumber()) {
@@ -78,14 +78,14 @@ public class Match implements Runnable {
     }
     return builder.build();
   }
-  
+
   private static boolean pointInArea(Point point, Size area) {
     return point.getX() >= 0
         && point.getY() >= 0
         && point.getX() < area.getWidth()
         && point.getY() < area.getHeight();
   }
-  
+
   private static boolean pointInPath(Point start, Direction direction, Point target) {
     if (start.getX() != target.getX() && start.getY() != target.getY()) {
       return false;
@@ -93,7 +93,7 @@ public class Match implements Runnable {
     if (start.getX() == target.getX() && start.getY() == target.getY()) {
       return true;
     }
-    
+
     switch (direction.getNumber()) {
       case Direction.NORTH_VALUE:
         return target.getY() > start.getY();
@@ -107,13 +107,13 @@ public class Match implements Runnable {
         throw new IllegalArgumentException();
     }
   }
-  
-  private GameState.Builder simulationState;
+
+  private final GameState.Builder simulationState;
   private GameLog.Builder gameLog;
-  private int roundId = 0;
+  private final int roundId = 0;
   private final ImmutableList<MatchClient> players;
   private final int matchId;
-  
+
   public Match(int matchId, List<Client> players, GameState startState) {
     if (players.size() != startState.getPlayerCount()) {
       throw new IllegalArgumentException();
@@ -130,7 +130,7 @@ public class Match implements Runnable {
   private Optional<Soldier.Builder> getSoldierById(int soldierId) {
     throw new UnsupportedOperationException();
   }
-  
+
   class SimulationStep {
 
     private final GameState entryState;
@@ -152,7 +152,7 @@ public class Match implements Runnable {
         if (!operation.getShoot().hasSoldierId()) {
           throw new OperationException(OperationError.INVALID_FIELD);
         }
-        
+
         Optional<Soldier.Builder> soldier = getSoldierById(operation.getShoot().getSoldierId());
         if (!soldier.isPresent()) {
           throw new OperationException(OperationError.INVALID_ID);
@@ -160,7 +160,7 @@ public class Match implements Runnable {
         if (soldier.get().getPlayerId() != playerId) {
           throw new OperationException(OperationError.WRONG_PLAYER);
         }
-        
+
         simulationState.addBulletBuilder()
             .setPosition(soldier.get().getPosition())
             .setDirection(operation.getShoot().getDirection());
@@ -170,7 +170,7 @@ public class Match implements Runnable {
         if (!operation.getMove().hasSoldierId()) {
           throw new OperationException(OperationError.INVALID_FIELD);
         }
-        
+
         Optional<Soldier.Builder> soldier = getSoldierById(operation.getMove().getSoldierId());
         if (!soldier.isPresent()) {
           throw new OperationException(OperationError.INVALID_ID);
@@ -178,7 +178,7 @@ public class Match implements Runnable {
         if (soldier.get().getPlayerId() != playerId) {
           throw new OperationException(OperationError.WRONG_PLAYER);
         }
-        
+
         Point dest = applyDirection(
             soldier.get().getPosition(),
             operation.getMove().getDirection());
@@ -190,19 +190,19 @@ public class Match implements Runnable {
         if (destBox.getBlocking()) {
           throw new OperationException(OperationError.INVALID_MOVEMENT);
         }
-        
+
         soldier.get().setPosition(dest);
       }
     }
-    
+
     private void runPreStep() {
       simulationState.clearBullet();
     }
-    
+
     private void runPlayerOperation(int playerId, Operation operation) {
       OperationError error = OperationError.NONE;
       Round.Builder round = gameLog.getRoundBuilder(gameLog.getRoundCount()-1);
-      
+
       try {
         if (round.getRoundId() != operation.getRoundId()) {
           error = OperationError.WRONG_ROUND;
@@ -213,17 +213,17 @@ public class Match implements Runnable {
       } catch (OperationException exc) {
         error = exc.getCode();
       }
-      
+
       round.addOperationBuilder()
           .setOperation(operation)
           .setError(error)
           .setPlayerId(playerId);
     }
-    
+
     private void runPostStep() {
       List<Bullet> oldBullets = entryState.getBulletList();
       for (final Bullet bullet : oldBullets) {
-        
+
         final Iterable<Soldier.Builder> soldiersInPath
             = Iterables.filter(simulationState.getSoldierBuilderList(),
                                new Predicate<Soldier.Builder>() {
@@ -232,11 +232,11 @@ public class Match implements Runnable {
             return pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
           }
         });
-        
+
         if (Iterables.isEmpty(soldiersInPath)) {
           continue;
         }
-        
+
         final Ordering<SoldierOrBuilder> proximityOrdering
             = Ordering.natural().onResultOf(new Function<SoldierOrBuilder, Integer>() {
           @Override
@@ -245,17 +245,17 @@ public class Match implements Runnable {
                 + Math.abs(soldier.getPosition().getY() - bullet.getPosition().getY());
           }
         });
-        
+
         final List<Soldier.Builder> hitOrderedSoldiers
             = proximityOrdering.sortedCopy(soldiersInPath);
-        List<Soldier.Builder> hits = new ArrayList<>(); 
+        List<Soldier.Builder> hits = new ArrayList<>();
         for (Soldier.Builder target : hitOrderedSoldiers) {
           if (!target.getPosition().equals(hitOrderedSoldiers.get(0).getPosition())) {
             break;
           }
           hits.add(target);
         }
-        
+
         for (Soldier.Builder hit : hits) {
           if (hit.getPlayerId() == bullet.getOwnerId()) {
             log.info(String.format(
@@ -269,12 +269,13 @@ public class Match implements Runnable {
                 matchId, roundId, hit.getSoldierId(), bullet.getOwnerId()));
           }
         }
-        
+
       }
     }
 
   }
 
+  @Override
   public void run() {
     gameLog.setStartState(simulationState.build());
     for (MatchClient player : players) {
@@ -285,11 +286,11 @@ public class Match implements Runnable {
           matchId, player.client.getName()), e);
       }
     }
-    
+
     while (roundId < MAX_ROUNDS) {
       SimulationStep step = new SimulationStep();
       step.runPreStep();
-      
+
       for (MatchClient player : players) {
         gameLog.addRoundBuilder().setRoundId(roundId);
         try {
@@ -301,10 +302,10 @@ public class Match implements Runnable {
               matchId, roundId, player.client.getName()), e);
         }
       }
-      
+
       step.runPostStep();
       GameState roundEnd = simulationState.build();
-      
+
       for (MatchClient player : players) {
         try {
           player.client.transmitState(View.newBuilder().setState(roundEnd).build());
@@ -315,5 +316,5 @@ public class Match implements Runnable {
       }
     }
   }
-  
+
 }

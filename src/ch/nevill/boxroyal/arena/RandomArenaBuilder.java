@@ -8,9 +8,9 @@ import ch.nevill.boxroyal.proto.Point;
 
 public class RandomArenaBuilder implements ArenaBuilder {
 
-  private int width;
-  private int height;
-  private Random random;
+  private final int width;
+  private final int height;
+  private final Random random;
 
   public RandomArenaBuilder(int width, int height) {
     this.width = width;
@@ -23,7 +23,7 @@ public class RandomArenaBuilder implements ArenaBuilder {
     for (int i = 0; i < width*height; ++i) {
       stateBuilder.addBoxBuilder().setBlocking(random.nextDouble() > 0.9);
     }
-    
+
     for (Player player : stateBuilder.getPlayerList()) {
       int soldiers = 0;
       while (soldiers < 3) {
