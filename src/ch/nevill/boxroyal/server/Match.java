@@ -54,7 +54,7 @@ public class Match implements Runnable {
   private static class MatchClient {
     public final Client client;
     public final Player player;
-    public MatchClient(int index, Client client, Player player) {
+    public MatchClient(Client client, Player player) {
       this.client = client;
       this.player = player;
     }
@@ -123,7 +123,7 @@ public class Match implements Runnable {
     }
     ImmutableList.Builder<MatchClient> playersBuilder = ImmutableList.builder();
     for (int i = 0; i < players.size(); i++) {
-      playersBuilder.add(new MatchClient(i, players.get(i), startState.getPlayer(i)));
+      playersBuilder.add(new MatchClient(players.get(i), startState.getPlayer(i)));
     }
     this.players = playersBuilder.build();
     this.matchId = matchId;
