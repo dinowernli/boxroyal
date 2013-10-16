@@ -9,16 +9,11 @@ import java.util.concurrent.Callable;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import ch.nevill.boxroyal.proto.Direction;
 import ch.nevill.boxroyal.proto.GameLog;
 import ch.nevill.boxroyal.proto.GameState;
 import ch.nevill.boxroyal.proto.Operation;
-import ch.nevill.boxroyal.proto.OperationError;
 import ch.nevill.boxroyal.proto.Player;
-import ch.nevill.boxroyal.proto.Point;
 import ch.nevill.boxroyal.proto.Round;
-import ch.nevill.boxroyal.proto.Point.Builder;
-import ch.nevill.boxroyal.proto.Size;
 import ch.nevill.boxroyal.proto.Soldier;
 import ch.nevill.boxroyal.proto.View;
 
@@ -30,18 +25,13 @@ public class Match implements Runnable {
   private static final Log log = LogFactory.getLog(Match.class);
   private static final int MAX_ROUNDS = 200;
 
-  static class OperationException extends Exception {
-    private static final long serialVersionUID = -2405849614106891603L;
-    private final OperationError code;
-
-    public OperationException(OperationError code) {
-      this.code = code;
-    }
-
-    public OperationError getCode() {
-      return code;
-    }
-  }
+  final GameState.Builder simulationState;
+  GameLog.Builder gameLog;
+  int roundId = 0;
+  private final ImmutableList<MatchClient> players;
+  final int matchId;
+  private final Map<Integer, Soldier.Builder> soldierIdMap;
+  private final Callable<Void> finishCallable;
 
   private static class MatchClient {
     public final Client client;
@@ -51,64 +41,6 @@ public class Match implements Runnable {
       this.player = player;
     }
   }
-
-  static Point applyDirection(Point point, Direction direction) {
-    Builder builder = point.toBuilder();
-    switch (direction.getNumber()) {
-      case Direction.NORTH_VALUE:
-        builder.setY(point.getY() + 1);
-        break;
-      case Direction.EAST_VALUE:
-        builder.setX(point.getX() + 1);
-        break;
-      case Direction.SOUTH_VALUE:
-        builder.setY(point.getY() - 1);
-        break;
-      case Direction.WEST_VALUE:
-        builder.setX(point.getX() - 1);
-        break;
-      default:
-        throw new IllegalArgumentException();
-    }
-    return builder.build();
-  }
-
-  static boolean pointInArea(Point point, Size area) {
-    return point.getX() >= 0
-        && point.getY() >= 0
-        && point.getX() < area.getWidth()
-        && point.getY() < area.getHeight();
-  }
-
-  static boolean pointInPath(Point start, Direction direction, Point target) {
-    if (start.getX() != target.getX() && start.getY() != target.getY()) {
-      return false;
-    }
-    if (start.getX() == target.getX() && start.getY() == target.getY()) {
-      return true;
-    }
-
-    switch (direction.getNumber()) {
-      case Direction.NORTH_VALUE:
-        return target.getY() > start.getY();
-      case Direction.EAST_VALUE:
-        return target.getX() > start.getX();
-      case Direction.SOUTH_VALUE:
-        return target.getY() < start.getY();
-      case Direction.WEST_VALUE:
-        return target.getX() < start.getX();
-      default:
-        throw new IllegalArgumentException();
-    }
-  }
-
-  final GameState.Builder simulationState;
-  GameLog.Builder gameLog;
-  int roundId = 0;
-  private final ImmutableList<MatchClient> players;
-  final int matchId;
-  private final Map<Integer, Soldier.Builder> soldierIdMap;
-  private final Callable<Void> finishCallable;
 
   public Match(int matchId, List<Client> players, GameState startState, Callable<Void> finishCallable) {
     if (players.size() != startState.getPlayerCount()) {

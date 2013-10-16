@@ -8,7 +8,6 @@ import org.apache.commons.logging.LogFactory;
 
 import ch.nevill.boxroyal.proto.Box;
 import ch.nevill.boxroyal.proto.Bullet;
-import ch.nevill.boxroyal.proto.GameLog;
 import ch.nevill.boxroyal.proto.GameState;
 import ch.nevill.boxroyal.proto.Operation;
 import ch.nevill.boxroyal.proto.OperationError;
@@ -17,10 +16,8 @@ import ch.nevill.boxroyal.proto.Round;
 import ch.nevill.boxroyal.proto.Soldier;
 import ch.nevill.boxroyal.proto.Soldier.Builder;
 import ch.nevill.boxroyal.proto.SoldierOrBuilder;
-import ch.nevill.boxroyal.server.Match.OperationException;
 
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -52,20 +49,20 @@ class SimulationStep {
 
   private void applyOperation(int playerId, Operation operation) throws OperationException {
     if (operation.hasMove() == operation.hasShoot()) {
-      throw new Match.OperationException(OperationError.INVALID_FIELD);
+      throw new OperationException(OperationError.INVALID_FIELD);
     }
 
     if (operation.hasShoot()) {
       if (!operation.getShoot().hasSoldierId()) {
-        throw new Match.OperationException(OperationError.INVALID_FIELD);
+        throw new OperationException(OperationError.INVALID_FIELD);
       }
 
       Soldier.Builder soldier = soldierMap.get(operation.getShoot().getSoldierId());
       if (soldier == null) {
-        throw new Match.OperationException(OperationError.INVALID_ID);
+        throw new OperationException(OperationError.INVALID_ID);
       }
       if (soldier.getPlayerId() != playerId) {
-        throw new Match.OperationException(OperationError.WRONG_PLAYER);
+        throw new OperationException(OperationError.WRONG_PLAYER);
       }
 
       this.gameState.addBulletBuilder()
@@ -75,25 +72,25 @@ class SimulationStep {
 
     if (operation.hasMove()) {
       if (!operation.getMove().hasSoldierId()) {
-        throw new Match.OperationException(OperationError.INVALID_FIELD);
+        throw new OperationException(OperationError.INVALID_FIELD);
       }
 
       Soldier.Builder soldier = soldierMap.get(operation.getMove().getSoldierId());
       if (soldier == null) {
-        throw new Match.OperationException(OperationError.INVALID_ID);
+        throw new OperationException(OperationError.INVALID_ID);
       }
       if (soldier.getPlayerId() != playerId) {
-        throw new Match.OperationException(OperationError.WRONG_PLAYER);
+        throw new OperationException(OperationError.WRONG_PLAYER);
       }
 
-      Point dest = Match.applyDirection(soldier.getPosition(), operation.getMove().getDirection());
-      if (!Match.pointInArea(dest, gameState.getSize())) {
-        throw new Match.OperationException(OperationError.INVALID_MOVEMENT);
+      Point dest = GeometryUtils.applyDirection(soldier.getPosition(), operation.getMove().getDirection());
+      if (!GeometryUtils.pointInArea(dest, gameState.getSize())) {
+        throw new OperationException(OperationError.INVALID_MOVEMENT);
       }
 
       Box destBox = getBoxAt(dest);
       if (destBox.getBlocking()) {
-        throw new Match.OperationException(OperationError.INVALID_MOVEMENT);
+        throw new OperationException(OperationError.INVALID_MOVEMENT);
       }
 
       soldier.setPosition(dest);
@@ -131,7 +128,7 @@ class SimulationStep {
           Iterables.filter(gameState.getSoldierBuilderList(), new Predicate<Soldier.Builder>() {
             @Override
             public boolean apply(Soldier.Builder soldier) {
-              return Match.pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
+              return GeometryUtils.pointInPath(bullet.getPosition(), bullet.getDirection(), soldier.getPosition());
             }
           });
 
