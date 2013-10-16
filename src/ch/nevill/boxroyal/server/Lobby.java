@@ -69,11 +69,12 @@ public class Lobby implements Runnable {
   public static void startServer() throws IOException {
     Lobby lobby = new Lobby();
     new Thread(lobby).start();
-    ServerSocket serverSocket = new ServerSocket(45678);
-    while (true) {
-      Socket s = serverSocket.accept();
-      Client c = new Client(s);
-      lobby.readyClients.add(c);
+    try (ServerSocket serverSocket = new ServerSocket(45678)) {
+      while (true) {
+        Socket s = serverSocket.accept();
+        Client c = new Client(s);
+        lobby.readyClients.add(c);
+      }
     }
   }
 
@@ -84,5 +85,4 @@ public class Lobby implements Runnable {
       e.printStackTrace();
     }
   }
-
 }
