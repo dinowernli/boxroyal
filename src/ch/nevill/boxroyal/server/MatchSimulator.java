@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -28,7 +27,6 @@ public class MatchSimulator implements Runnable {
   GameLog.Builder gameLog;
   private final ImmutableList<MatchClient> players;
   private final Map<Integer, Soldier.Builder> soldierIdMap;
-  private final Callable<Void> finishCallable;
 
   private static class MatchClient {
     public final Client client;
@@ -39,7 +37,7 @@ public class MatchSimulator implements Runnable {
     }
   }
 
-  public MatchSimulator(List<Client> players, MatchState startState, Callable<Void> finishCallable) {
+  public MatchSimulator(List<Client> players, MatchState startState) {
     if (players.size() != startState.getConfig().getPlayerCount()) {
       throw new IllegalArgumentException();
     }
@@ -53,7 +51,6 @@ public class MatchSimulator implements Runnable {
     for (Soldier.Builder s : this.simulationState.getSoldierBuilderList()) {
       this.soldierIdMap.put(s.getSoldierId(), s);
     }
-    this.finishCallable = finishCallable;
   }
 
   private int getRoundId() {
@@ -62,16 +59,6 @@ public class MatchSimulator implements Runnable {
 
   private int getMatchId() {
     return simulationState.getConfig().getMatchId();
-  }
-
-  private void finished() {
-    // TODO: Write gameLog somewhere
-
-    try {
-      finishCallable.call();
-    } catch (Exception e) {
-      log.warn(String.format("Match %d: finishCallable failed", getMatchId()), e);
-    }
   }
 
   @Override
@@ -83,7 +70,6 @@ public class MatchSimulator implements Runnable {
       } catch (IOException e) {
         log.error(String.format("Match %d: Error transmitting initial state to player %s",
             getRoundId(), player.client.getName()), e);
-        finished();
         return;
       }
     }
@@ -117,7 +103,5 @@ public class MatchSimulator implements Runnable {
         }
       }
     }
-
-    finished();
   }
 }
