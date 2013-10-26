@@ -10,9 +10,7 @@ import org.apache.commons.logging.LogFactory;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
 public class ClientConnectionListenerService extends AbstractExecutionThreadService {
-
   private static final Log log = LogFactory.getLog(ClientConnectionListenerService.class);
-
   private static final int SERVICE_PORT = 45678;
 
   private ServerSocket serverSocket = null;

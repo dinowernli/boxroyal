@@ -11,7 +11,6 @@ import ch.nevill.boxroyal.proto.Turn;
 import ch.nevill.boxroyal.proto.View;
 
 class Client {
-
   private final Socket socket;
   private final InputStream receiveStream;
   private final OutputStream transmitStream;
@@ -39,5 +38,4 @@ class Client {
   public String getName() {
     return Integer.toString(hashCode());
   }
-
 }

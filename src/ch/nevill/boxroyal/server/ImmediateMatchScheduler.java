@@ -3,22 +3,20 @@ package ch.nevill.boxroyal.server;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFutureTask;
 
-
 public class ImmediateMatchScheduler implements MatchScheduler, PlayerEntry {
-
   private static final int PLAYERS_PER_MATCH = 2;
 
-  private final BlockingQueue<Client> readyClients = new LinkedBlockingQueue<>();
+  private final Queue<Client> readyClients = new ConcurrentLinkedQueue<>();
   private List<Client> nextClients = new ArrayList<>(PLAYERS_PER_MATCH);
   private final MatchBuilder matchBuilder;
 
@@ -28,9 +26,12 @@ public class ImmediateMatchScheduler implements MatchScheduler, PlayerEntry {
 
   @Override
   public Optional<ListenableFutureTask<MatchSimulator>> getNextMatch(int matchId) {
-    int required = PLAYERS_PER_MATCH - nextClients.size();
-    while (required > 0 && !readyClients.isEmpty()) {
-      readyClients.drainTo(nextClients, required);
+    while (nextClients.size() < PLAYERS_PER_MATCH) {
+      Client client = readyClients.poll();
+      if (client == null) {
+        return Optional.absent();
+      }
+      nextClients.add(client);
 
       // Cull already disconnected clients to reduce the number of preemptively terminated matches
       for (Iterator<Client> i = nextClients.iterator(); i.hasNext(); ) {
@@ -41,14 +42,10 @@ public class ImmediateMatchScheduler implements MatchScheduler, PlayerEntry {
       }
     }
 
-    if (nextClients.size() < PLAYERS_PER_MATCH) {
-      return Optional.absent();
-    }
-
-    final ImmutableList<Client> players =
-        ImmutableList.copyOf(Iterables.limit(nextClients, PLAYERS_PER_MATCH));
+    Preconditions.checkState(nextClients.size() == PLAYERS_PER_MATCH);
+    final ImmutableList<Client> players = ImmutableList.copyOf(nextClients);
+    nextClients.clear();
     final MatchSimulator match = matchBuilder.build(matchId, players);
-    nextClients = nextClients.subList(PLAYERS_PER_MATCH, nextClients.size());
 
     ListenableFutureTask<MatchSimulator> matchTask = ListenableFutureTask.create(match, match);
     Futures.addCallback(matchTask, new FutureCallback<MatchSimulator>() {
@@ -77,5 +74,4 @@ public class ImmediateMatchScheduler implements MatchScheduler, PlayerEntry {
       addPlayer(p);
     }
   }
-
 }

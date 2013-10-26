@@ -8,7 +8,6 @@ import ch.nevill.boxroyal.proto.Player;
 import ch.nevill.boxroyal.proto.Point;
 
 public class RandomArenaBuilder implements ArenaBuilder {
-
   private final int width;
   private final int height;
   private final Random random;
@@ -41,8 +40,6 @@ public class RandomArenaBuilder implements ArenaBuilder {
         }
       }
     }
-
     return stateBuilder.build();
   }
-
 }

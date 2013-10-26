@@ -6,7 +6,6 @@ import ch.nevill.boxroyal.proto.Point.Builder;
 import ch.nevill.boxroyal.proto.Size;
 
 public class GeometryUtils {
-
   static Point movePointInDirection(Point point, Direction direction) {
     return movePointInDirection(point, direction, 1);
   }
@@ -60,5 +59,4 @@ public class GeometryUtils {
         throw new IllegalArgumentException();
     }
   }
-
 }

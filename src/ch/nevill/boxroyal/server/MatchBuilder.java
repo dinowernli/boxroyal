@@ -7,10 +7,7 @@ import ch.nevill.boxroyal.proto.Player;
 
 import com.google.common.collect.ImmutableList;
 
-
-
 public class MatchBuilder {
-
   private final ArenaBuilder arenaBuilder;
 
   public MatchBuilder(ArenaBuilder arenaBuilder) {
@@ -26,8 +23,6 @@ public class MatchBuilder {
 
     MatchState state = arenaBuilder.build(matchConfig);
     state = state.toBuilder().setConfig(matchConfig).setRound(0).build();
-
     return new MatchSimulator(players, state);
   }
-
 }

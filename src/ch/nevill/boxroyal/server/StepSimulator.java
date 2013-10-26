@@ -35,8 +35,8 @@ class StepSimulator {
   private final Set<Integer> actionedSoldiers;
 
   public StepSimulator(ImmutableMap<Integer, Soldier.Builder> soldierMap,
-                        MatchState.Builder matchState,
-                        Round.Builder round) {
+                       MatchState.Builder matchState,
+                       Round.Builder round) {
     this.soldierMap = soldierMap;
     this.matchState = matchState;
     this.entryState = matchState.build();

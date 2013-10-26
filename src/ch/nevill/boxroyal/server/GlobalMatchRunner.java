@@ -11,9 +11,9 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFutureTask;
 
 public class GlobalMatchRunner implements Runnable {
-
   private static final int MAX_CONCURRENT_MATCHES = 10;
   private static final int WORK_CHECK_INTERVAL = 100;
+
   private final MatchScheduler rootScheduler;
   private final ThreadPoolExecutor matchExecutor;
   private int nextMatchId = 1;
@@ -28,7 +28,7 @@ public class GlobalMatchRunner implements Runnable {
   @Override
   public void run() {
     while (true) {
-      if (matchExecutor.getQueue().size() == 0) {
+      if (matchExecutor.getQueue().isEmpty()) {
         Optional<ListenableFutureTask<MatchSimulator>> nextMatch = rootScheduler.getNextMatch(nextMatchId);
         if (nextMatch.isPresent()) {
           ++nextMatchId;
@@ -59,5 +59,4 @@ public class GlobalMatchRunner implements Runnable {
 
     matchRunner.run();
   }
-
 }
