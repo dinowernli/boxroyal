@@ -1,4 +1,3 @@
-compiler.javaOutputDirectory=bin
 eclipse.preferences.version=1
 paths.directoryPaths=${workspace_loc\:/${project}/src/ch/nevill/boxroyal/proto}
 paths.filesInMultipleDirectories=true
